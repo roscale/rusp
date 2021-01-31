@@ -2,7 +2,8 @@
 
 use std::fs::File;
 use std::io::Read;
-use crate::tokenizer::tokenize;
+
+use crate::tokenizer::Tokenizer;
 
 mod tokenizer;
 
@@ -14,6 +15,10 @@ fn main() {
         source
     };
 
-    let tokens = tokenize(&source);
+    let tokens = Tokenizer::new(&source).tokenize();
+
+
+
+    // drop(source);
     println!("{:?}", tokens)
 }
