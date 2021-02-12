@@ -75,7 +75,7 @@ pub enum TokenType {
     StringLiteral(char), // stores the opening/closing character, either ' or "
 }
 
-pub struct Tokenizer<'a> {
+pub struct Lexer<'a> {
     source: &'a str,
     current_token_start_index: usize,
     starting_new_token: bool,
@@ -87,7 +87,7 @@ pub struct Tokenizer<'a> {
     current_character: Option<(usize, char)>,
 }
 
-impl<'a> Tokenizer<'a> {
+impl<'a> Lexer<'a> {
     pub fn new(source: &'a str) -> Self {
         let mut this = Self {
             source,

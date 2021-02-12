@@ -15,9 +15,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Clean up the code">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Tokenize signed numbers">
+      <change afterPath="$PROJECT_DIR$/src/lexer2.rs" afterDir="false" />
+      <change afterPath="$PROJECT_DIR$/src/util.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/tokenizer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/tokenizer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/tokenizer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
@@ -106,7 +109,11 @@
       <workItem from="1611948864295" duration="2031000" />
       <workItem from="1612123736402" duration="4031000" />
       <workItem from="1612198130096" duration="3809000" />
-      <workItem from="1612457818402" duration="2743000" />
+      <workItem from="1612457818402" duration="4251000" />
+      <workItem from="1612629540605" duration="1135000" />
+      <workItem from="1612708701884" duration="4196000" />
+      <workItem from="1612896496559" duration="5000" />
+      <workItem from="1613130548785" duration="26993000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -122,7 +129,14 @@
       <option name="project" value="LOCAL" />
       <updated>1612130761206</updated>
     </task>
-    <option name="localTasksCounter" value="3" />
+    <task id="LOCAL-00003" summary="Tokenize signed numbers">
+      <created>1612462027854</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1612462027854</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -143,7 +157,8 @@
   <component name="VcsManagerConfiguration">
     <MESSAGE value="First commit" />
     <MESSAGE value="Clean up the code" />
-    <option name="LAST_COMMIT_MESSAGE" value="Clean up the code" />
+    <MESSAGE value="Tokenize signed numbers" />
+    <option name="LAST_COMMIT_MESSAGE" value="Tokenize signed numbers" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

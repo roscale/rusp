@@ -3,9 +3,12 @@
 use std::fs::File;
 use std::io::Read;
 
-use crate::tokenizer::Tokenizer;
+use crate::lexer::Lexer;
+use crate::lexer2::Lexer2;
 
-mod tokenizer;
+mod lexer;
+mod lexer2;
+mod util;
 
 fn main() {
     let source = {
@@ -15,10 +18,20 @@ fn main() {
         source
     };
 
-    let tokens = Tokenizer::new(&source).tokenize();
+    // let tokens = Lexer::new(&source).tokenize();
 
+    let chars = source.chars().collect::<Vec<_>>();
+    let mut lexer = Lexer2::new(chars.as_slice());
+    let result = lexer.tokenize();
 
+    match result {
+        Ok(tokens) => {
+            println!("{:?}", &tokens);
+        }
+        Err(e) => {
+            dbg!(e);
+        }
+    }
 
-    // drop(source);
-    println!("{:?}", tokens)
+    // println!("{:?}", tokens)
 }
