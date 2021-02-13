@@ -1,14 +1,17 @@
-use std::iter::{Enumerate, Peekable};
-use std::str::Chars;
+// Architecture similar to this image
+// https://miro.medium.com/max/875/1%2aluy_LfooQ8dLjhOiaZ1mrg.png
 
-#[derive(Debug, Copy, Clone)]
-pub enum Token<'a> {
-    Id(&'a str),
+#[derive(Debug, Clone)]
+pub enum Token {
+    Id(String),
     If,
     While,
     For,
-    Number(&'a str),
-    StringLiteral(&'a str),
+    True,
+    False,
+    Float(f32),
+    Integer(i32),
+    StringLiteral(String),
     LeftParenthesis,
     RightParenthesis,
     LeftSquareBracket,
@@ -18,172 +21,200 @@ pub enum Token<'a> {
     Comma,
     Semicolon,
     Colon,
+    Dot,
     Equal,
     Plus,
     Minus,
     Asterisk,
     Slash,
+    Pow,
 }
 
-impl<'a> Token<'a> {
-    pub fn from_single_char(c: char) -> Self {
-        match c {
-            ',' => Self::Comma,
-            ';' => Self::Semicolon,
-            ':' => Self::Colon,
-            '=' => Self::Equal,
-            '+' => Self::Plus,
-            '-' => Self::Minus,
-            '*' => Self::Asterisk,
-            '/' => Self::Slash,
-            '(' => Self::LeftParenthesis,
-            ')' => Self::RightParenthesis,
-            '[' => Self::LeftSquareBracket,
-            ']' => Self::RightSquareBracket,
-            '{' => Self::LeftBrace,
-            '}' => Self::RightBrace,
-            _ => unimplemented!()
-        }
-    }
-
-    pub fn from_symbol(symbol: &'a str) -> Self {
-        match symbol {
-            "if" => Token::If,
-            "while" => Token::While,
-            "for" => Token::For,
-            _ => {
-                let mut it = symbol.chars();
-                let (first, second) = (it.next(), it.next());
-
-                let is_number = match (first, second) {
-                    (Some(sign), Some(digit)) if (sign == '+' || sign == '-') && digit.is_ascii_digit() => true,
-                    (Some(digit), ..) if digit.is_ascii_digit() => true,
-                    _ => false,
-                };
-                if is_number {
-                    Token::Number(symbol)
-                } else {
-                    Token::Id(symbol)
-                }
-            }
-        }
-    }
-}
-
-pub enum TokenType {
-    Symbol,
-    StringLiteral(char), // stores the opening/closing character, either ' or "
+#[derive(Debug)]
+pub enum LexerError {
+    UnexpectedCharacter(char),
 }
 
 pub struct Lexer<'a> {
-    source: &'a str,
-    current_token_start_index: usize,
-    starting_new_token: bool,
-    current_token_type: TokenType,
-
-    tokens: Vec<Token<'a>>,
-
-    it: Peekable<Enumerate<Chars<'a>>>,
-    current_character: Option<(usize, char)>,
+    view: &'a [char],
+    tokens: Vec<Token>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(source: &'a str) -> Self {
-        let mut this = Self {
-            source,
-            current_token_start_index: 0,
-            starting_new_token: true,
-            current_token_type: TokenType::Symbol,
-
+    pub fn new(view: &'a [char]) -> Self {
+        Self {
+            view,
             tokens: vec![],
-
-            it: source.chars().enumerate().peekable(),
-            current_character: None,
-        };
-        this.current_character = this.it.next();
-        this
+        }
     }
 
-    pub fn tokenize(mut self) -> Vec<Token<'a>> {
-        while let Some((i, c)) = self.current_character {
-
-            // String literals
-            match self.current_token_type {
-                // End
-                TokenType::StringLiteral(closing_quote) if c == closing_quote => {
-                    self.end_current_token();
-                    self.current_token_type = TokenType::Symbol;
-                    self.current_character = self.it.next();
-                    continue;
-                }
-                // Middle
-                TokenType::StringLiteral(_) => {
-                    if c == '\\' {
-                        self.it.next(); // Skip the next character
-                    }
-                    self.current_character = self.it.next();
-                    continue;
-                }
-                // Start
-                _ => if matches!(c, '\"' | '\'') {
-                    self.end_current_token();
-                    self.current_token_type = TokenType::StringLiteral(c);
-                    self.current_character = self.it.next();
-                    continue;
-                }
+    pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerError> {
+        loop {
+            match self.view {
+                [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
+                ['/', '/', ..] => self.process_comments()?,
+                ['"', ..] => self.process_string_literals()?,
+                [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
+                ['+' | '-', digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
+                [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
+                [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
+                [e, ..] => return Err(LexerError::UnexpectedCharacter(*e)),
+                [] => break,
             }
+        }
+        Ok(self.tokens.clone())
+    }
 
-            match c {
-                '+' | '-' if self.it.peek().filter(|v| v.1.is_ascii_digit()).is_some() => {
-                    if self.starting_new_token {
-                        self.current_token_start_index = i;
-                        self.starting_new_token = false;
-                    }
+    fn process_keywords_and_identifiers(&mut self) -> Result<(), LexerError> {
+        let start = self.view;
+        let mut i = 0;
+
+        loop {
+            match self.view {
+                [c, ..] if !is_valid_identifier_character(*c) => {
+                    let mut end_token = || {
+                        if start.is_empty() {
+                            return;
+                        }
+                        let token = start[..i].iter().collect::<String>();
+                        let token = match token.as_str() {
+                            "if" => Token::If,
+                            "while" => Token::While,
+                            "for" => Token::For,
+                            "true" => Token::True,
+                            "false" => Token::False,
+                            _ => Token::Id(start[..i].iter().collect::<String>())
+                        };
+                        self.tokens.push(token);
+                    };
+                    end_token();
+                    break Ok(());
                 }
-                // Special characters and operators that terminate a token
-                ',' | ';' | ':' | '=' | '+' | '-' | '*' | '/' |
-                '(' | ')' | '[' | ']' | '{' | '}' => {
-                    self.end_current_token();
-                    self.tokens.push(Token::from_single_char(c));
+                [_, ..] => {
+                    self.view = &self.view[1..];
+                    i += 1;
                 }
-                whitespace if whitespace.is_whitespace() => {
-                    self.end_current_token();
+                [] => break Ok(()),
+            }
+        }
+    }
+
+    fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
+        let token = match self.view {
+            ['(', ..] => Some((1, Token::LeftParenthesis)),
+            [')', ..] => Some((1, Token::RightParenthesis)),
+            ['[', ..] => Some((1, Token::LeftSquareBracket)),
+            [']', ..] => Some((1, Token::RightSquareBracket)),
+            ['{', ..] => Some((1, Token::LeftBrace)),
+            ['}', ..] => Some((1, Token::RightBrace)),
+            [',', ..] => Some((1, Token::Comma)),
+            [';', ..] => Some((1, Token::Semicolon)),
+            [':', ..] => Some((1, Token::Colon)),
+            ['.', ..] => Some((1, Token::Dot)),
+            ['=', ..] => Some((1, Token::Equal)),
+            ['+', ..] => Some((1, Token::Plus)),
+            ['-', ..] => Some((1, Token::Minus)),
+            ['*', '*', ..] => Some((2, Token::Pow)),
+            ['*', ..] => Some((1, Token::Asterisk)),
+            ['/', ..] => Some((1, Token::Slash)),
+            _ => None,
+        };
+        if let Some((n, token)) = token {
+            self.tokens.push(token);
+            self.view = &self.view[n..];
+        }
+        Ok(())
+    }
+
+    fn process_string_literals(&mut self) -> Result<(), LexerError> {
+        self.view = &self.view[1..]; // Eat first quote
+        let start = self.view;
+        let mut i = 0;
+        loop {
+            match self.view {
+                ['\\', '"', ..] => {
+                    self.view = &self.view[2..];
+                    i += 2;
                 }
-                // Mark the beginning of the new token
+                ['"', ..] => {
+                    let string = start[..i].iter().collect::<String>();
+                    self.tokens.push(Token::StringLiteral(string));
+
+                    self.view = &self.view[1..]; // Eat last quote
+                    break Ok(());
+                }
+                [_, ..] => {
+                    self.view = &self.view[1..];
+                    i += 1;
+                }
+                [] => break Ok(()),
+            }
+        }
+    }
+
+    fn process_numeric_literals(&mut self) -> Result<(), LexerError> {
+        let start = self.view;
+        let mut i = 0;
+        let mut is_float = false;
+
+        let mut is_sign_allowed = true;
+        let mut is_point_allowed = true;
+
+        loop {
+            match self.view {
+                ['+' | '-', ..] if is_sign_allowed => {
+                    is_sign_allowed = false;
+
+                    self.view = &self.view[1..];
+                    i += 1;
+                }
+                ['.', ..] if is_point_allowed => {
+                    is_point_allowed = false;
+                    is_sign_allowed = false;
+                    is_float = true;
+
+                    self.view = &self.view[1..];
+                    i += 1;
+                }
+                [d, ..] if d.is_ascii_digit() => {
+                    is_sign_allowed = false;
+
+                    self.view = &self.view[1..];
+                    i += 1;
+                }
                 _ => {
-                    if self.starting_new_token {
-                        self.current_token_start_index = i;
-                        self.starting_new_token = false;
-                    }
+                    let number = &start[..i].iter().collect::<String>();
+                    self.tokens.push(if is_float {
+                        let float = number.parse::<f32>().unwrap();
+                        Token::Float(float)
+                    } else {
+                        let integer = number.parse::<i32>().unwrap();
+                        Token::Integer(integer)
+                    });
+                    break Ok(())
                 }
             }
-            self.current_character = self.it.next();
         }
-        self.end_current_token();
-        self.tokens.clone()
     }
 
-    pub fn end_current_token(&mut self) {
-        let end_index = if let Some((i, _)) = self.current_character {
-            i
-        } else {
-            self.source.len()
-        };
-
-        let token_str = &self.source[self.current_token_start_index..end_index];
-
-        match self.current_token_type {
-            TokenType::Symbol => {
-                if !token_str.is_empty() {
-                    self.tokens.push(Token::from_symbol(token_str));
-                }
-            }
-            TokenType::StringLiteral(_) => {
-                self.tokens.push(Token::StringLiteral(token_str));
+    fn process_comments(&mut self) -> Result<(), LexerError> {
+        loop {
+            match self.view {
+                ['\n', ..] | [] => break Ok(()),
+                _ => self.view = &self.view[1..]
             }
         }
-        self.starting_new_token = true;
-        self.current_token_start_index = end_index + 1;
     }
 }
 
+fn is_valid_identifier_character(c: char) -> bool {
+    c.is_alphanumeric() || c == '_'
+}
+
+fn is_punctuation(c: char) -> bool {
+    match c {
+        ',' | ';' | ':' | '=' | '+' | '-' | '*' | '/' | '.' |
+        '(' | ')' | '[' | ']' | '{' | '}' => true,
+        _ => false,
+    }
+}
