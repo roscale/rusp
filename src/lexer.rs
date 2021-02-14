@@ -69,32 +69,42 @@ impl<'a> Lexer<'a> {
         let start = self.view;
         let mut i = 0;
 
+        fn end_token(start: &[char], i: usize) -> Option<Token> {
+            match start.is_empty() {
+                true => None,
+                false => {
+                    let token = start[..i].iter().collect::<String>();
+                    let token = match token.as_str() {
+                        "if" => Token::If,
+                        "while" => Token::While,
+                        "for" => Token::For,
+                        "true" => Token::True,
+                        "false" => Token::False,
+                        _ => Token::Id(start[..i].iter().collect::<String>())
+                    };
+                    Some(token)
+                }
+            }
+        }
+
         loop {
             match self.view {
                 [c, ..] if !is_valid_identifier_character(*c) => {
-                    let mut end_token = || {
-                        if start.is_empty() {
-                            return;
-                        }
-                        let token = start[..i].iter().collect::<String>();
-                        let token = match token.as_str() {
-                            "if" => Token::If,
-                            "while" => Token::While,
-                            "for" => Token::For,
-                            "true" => Token::True,
-                            "false" => Token::False,
-                            _ => Token::Id(start[..i].iter().collect::<String>())
-                        };
+                    if let Some(token) = end_token(start, i) {
                         self.tokens.push(token);
-                    };
-                    end_token();
+                    }
                     break Ok(());
                 }
+                [] => {
+                    if let Some(token) = end_token(start, i) {
+                        self.tokens.push(token);
+                    }
+                    break Ok(())
+                },
                 [_, ..] => {
                     self.view = &self.view[1..];
                     i += 1;
                 }
-                [] => break Ok(()),
             }
         }
     }

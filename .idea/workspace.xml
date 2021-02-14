@@ -15,13 +15,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Checkpoint lexer rewrite">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Rewritten the lexer using a different architecture">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lexer2.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/util.rs" beforeDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -98,11 +94,6 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <list>
       <item itemvalue="Cargo.Run" />
       <item itemvalue="Cargo.Run release" />
@@ -132,7 +123,8 @@
       <workItem from="1612629540605" duration="1135000" />
       <workItem from="1612708701884" duration="4196000" />
       <workItem from="1612896496559" duration="5000" />
-      <workItem from="1613130548785" duration="33429000" />
+      <workItem from="1613130548785" duration="38199000" />
+      <workItem from="1613308069780" duration="4852000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -162,7 +154,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613168039083</updated>
     </task>
-    <option name="localTasksCounter" value="5" />
+    <task id="LOCAL-00005" summary="Rewritten the lexer using a different architecture">
+      <created>1613220560337</created>
+      <option name="number" value="00005" />
+      <option name="presentableId" value="LOCAL-00005" />
+      <option name="project" value="LOCAL" />
+      <updated>1613220560337</updated>
+    </task>
+    <option name="localTasksCounter" value="6" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -185,7 +184,8 @@
     <MESSAGE value="Clean up the code" />
     <MESSAGE value="Tokenize signed numbers" />
     <MESSAGE value="Checkpoint lexer rewrite" />
-    <option name="LAST_COMMIT_MESSAGE" value="Checkpoint lexer rewrite" />
+    <MESSAGE value="Rewritten the lexer using a different architecture" />
+    <option name="LAST_COMMIT_MESSAGE" value="Rewritten the lexer using a different architecture" />
   </component>
   <component name="XDebuggerManager">
     <breakpoint-manager>
