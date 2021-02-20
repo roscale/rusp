@@ -4,14 +4,9 @@
 #[derive(Debug, Clone)]
 pub enum Token {
     Id(String),
-    If,
-    While,
-    For,
-    True,
-    False,
-    Float(f32),
-    Integer(i32),
-    StringLiteral(String),
+    Literal(Literal),
+    Keyword(Keyword),
+    Operator(Operator),
     LeftParenthesis,
     RightParenthesis,
     LeftSquareBracket,
@@ -22,6 +17,26 @@ pub enum Token {
     Semicolon,
     Colon,
     Dot,
+}
+
+#[derive(Debug, Clone)]
+pub enum Literal {
+    Float(f32),
+    Integer(i32),
+    String(String),
+}
+
+#[derive(Debug, Clone)]
+pub enum Keyword {
+    If,
+    While,
+    For,
+    True,
+    False,
+}
+
+#[derive(Debug, Clone)]
+pub enum Operator {
     Equal,
     Plus,
     Minus,
@@ -50,12 +65,20 @@ impl<'a> Lexer<'a> {
 
     pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerError> {
         loop {
+            let is_the_last_token_an_operator = {
+                match self.tokens.last() {
+                    None => true,
+                    Some(Token::Operator(_)) => true,
+                    Some(_) => false,
+                }
+            };
+
             match self.view {
                 [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
                 ['/', '/', ..] => self.process_comments()?,
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
-                ['+' | '-', digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
+                ['+' | '-', digit, ..] if digit.is_ascii_digit() && is_the_last_token_an_operator => self.process_numeric_literals()?,
                 [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
                 [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [e, ..] => return Err(LexerError::UnexpectedCharacter(*e)),
@@ -70,16 +93,17 @@ impl<'a> Lexer<'a> {
         let mut i = 0;
 
         fn end_token(start: &[char], i: usize) -> Option<Token> {
+            use Keyword::*;
             match start.is_empty() {
                 true => None,
                 false => {
                     let token = start[..i].iter().collect::<String>();
                     let token = match token.as_str() {
-                        "if" => Token::If,
-                        "while" => Token::While,
-                        "for" => Token::For,
-                        "true" => Token::True,
-                        "false" => Token::False,
+                        "if" => Token::Keyword(If),
+                        "while" => Token::Keyword(While),
+                        "for" => Token::Keyword(For),
+                        "true" => Token::Keyword(True),
+                        "false" => Token::Keyword(False),
                         _ => Token::Id(start[..i].iter().collect::<String>())
                     };
                     Some(token)
@@ -99,8 +123,8 @@ impl<'a> Lexer<'a> {
                     if let Some(token) = end_token(start, i) {
                         self.tokens.push(token);
                     }
-                    break Ok(())
-                },
+                    break Ok(());
+                }
                 [_, ..] => {
                     self.view = &self.view[1..];
                     i += 1;
@@ -110,6 +134,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
+        use Operator::*;
         let token = match self.view {
             ['(', ..] => Some((1, Token::LeftParenthesis)),
             [')', ..] => Some((1, Token::RightParenthesis)),
@@ -121,12 +146,12 @@ impl<'a> Lexer<'a> {
             [';', ..] => Some((1, Token::Semicolon)),
             [':', ..] => Some((1, Token::Colon)),
             ['.', ..] => Some((1, Token::Dot)),
-            ['=', ..] => Some((1, Token::Equal)),
-            ['+', ..] => Some((1, Token::Plus)),
-            ['-', ..] => Some((1, Token::Minus)),
-            ['*', '*', ..] => Some((2, Token::Pow)),
-            ['*', ..] => Some((1, Token::Asterisk)),
-            ['/', ..] => Some((1, Token::Slash)),
+            ['=', ..] => Some((1, Token::Operator(Equal))),
+            ['+', ..] => Some((1, Token::Operator(Plus))),
+            ['-', ..] => Some((1, Token::Operator(Minus))),
+            ['*', '*', ..] => Some((2, Token::Operator(Pow))),
+            ['*', ..] => Some((1, Token::Operator(Asterisk))),
+            ['/', ..] => Some((1, Token::Operator(Slash))),
             _ => None,
         };
         if let Some((n, token)) = token {
@@ -148,7 +173,7 @@ impl<'a> Lexer<'a> {
                 }
                 ['"', ..] => {
                     let string = start[..i].iter().collect::<String>();
-                    self.tokens.push(Token::StringLiteral(string));
+                    self.tokens.push(Token::Literal(Literal::String(string)));
 
                     self.view = &self.view[1..]; // Eat last quote
                     break Ok(());
@@ -196,12 +221,12 @@ impl<'a> Lexer<'a> {
                     let number = &start[..i].iter().collect::<String>();
                     self.tokens.push(if is_float {
                         let float = number.parse::<f32>().unwrap();
-                        Token::Float(float)
+                        Token::Literal(Literal::Float(float))
                     } else {
                         let integer = number.parse::<i32>().unwrap();
-                        Token::Integer(integer)
+                        Token::Literal(Literal::Integer(integer))
                     });
-                    break Ok(())
+                    break Ok(());
                 }
             }
         }

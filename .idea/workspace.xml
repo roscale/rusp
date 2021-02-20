@@ -15,9 +15,10 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Rewritten the lexer using a different architecture">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" afterPath="$PROJECT_DIR$/test.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -94,6 +95,11 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
+    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
+      <method v="2">
+        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
+      </method>
+    </configuration>
     <list>
       <item itemvalue="Cargo.Run" />
       <item itemvalue="Cargo.Run release" />
@@ -124,7 +130,10 @@
       <workItem from="1612708701884" duration="4196000" />
       <workItem from="1612896496559" duration="5000" />
       <workItem from="1613130548785" duration="38199000" />
-      <workItem from="1613308069780" duration="4852000" />
+      <workItem from="1613308069780" duration="8053000" />
+      <workItem from="1613559410427" duration="641000" />
+      <workItem from="1613601666429" duration="10000" />
+      <workItem from="1613858226702" duration="1692000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -161,7 +170,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613220560337</updated>
     </task>
-    <option name="localTasksCounter" value="6" />
+    <task id="LOCAL-00006" summary="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized">
+      <created>1613331366959</created>
+      <option name="number" value="00006" />
+      <option name="presentableId" value="LOCAL-00006" />
+      <option name="project" value="LOCAL" />
+      <updated>1613331366959</updated>
+    </task>
+    <option name="localTasksCounter" value="7" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -185,18 +201,8 @@
     <MESSAGE value="Tokenize signed numbers" />
     <MESSAGE value="Checkpoint lexer rewrite" />
     <MESSAGE value="Rewritten the lexer using a different architecture" />
-    <option name="LAST_COMMIT_MESSAGE" value="Rewritten the lexer using a different architecture" />
-  </component>
-  <component name="XDebuggerManager">
-    <breakpoint-manager>
-      <breakpoints>
-        <line-breakpoint enabled="true" type="com.jetbrains.cidr.execution.debugger.OCBreakpointType">
-          <url>file://$PROJECT_DIR$/src/main.rs</url>
-          <line>19</line>
-          <option name="timeStamp" value="6" />
-        </line-breakpoint>
-      </breakpoints>
-    </breakpoint-manager>
+    <MESSAGE value="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
