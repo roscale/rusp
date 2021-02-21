@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::lexer::Lexer;
-use crate::parser::{Parser, ParserError, Value};
+use crate::parser::{Parser, Value};
 
 mod lexer;
 mod parser;

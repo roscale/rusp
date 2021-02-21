@@ -1,10 +1,11 @@
 use std::collections::HashMap;
+use std::fmt::{Display, Formatter};
 
 use ParserError::*;
 
 use crate::lexer::{Keyword, Literal, Operator, Token};
+use crate::parser::Expression::Scope;
 use crate::parser::ParserError::VariableNotFound;
-use std::fmt::{Display, Formatter};
 
 struct Context<'k, 'v> {
     variables: HashMap<&'k str, &'v Value>,
@@ -15,11 +16,13 @@ enum Expression {
     Id(String),
     Value(Value),
     Operation(Operator, Vec<Expression>),
+    Scope(Vec<Expression>),
     FunctionCall(String, Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
 pub enum Value {
+    Unit,
     Integer(i32),
     Float(f32),
     String(String),
@@ -28,6 +31,7 @@ pub enum Value {
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
+            Value::Unit => write!(f, "()"),
             Value::Integer(int) => write!(f, "{}", int),
             Value::Float(float) => write!(f, "{}", float),
             Value::String(string) => write!(f, "{}", string),
@@ -49,6 +53,11 @@ impl Expression {
         match self {
             Expression::Id(id) => context.variables.get(id as &str).cloned().cloned().ok_or(VariableNotFound(id)),
             Expression::Value(value) => Ok(value.clone()),
+            Expression::Scope(expressions) => {
+                expressions.iter().fold(Ok(Value::Unit), |_, expression| {
+                    expression.evaluate(context)
+                })
+            }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
                 for op in operands {
@@ -57,19 +66,22 @@ impl Expression {
 
                 use Value::*;
                 match op {
-                    Operator::Plus => Ok(values.into_iter().fold(Value::Integer(0), |acc, x| {
-                        match (acc, x) {
-                            (String(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
-                            (String(lhs), Integer(rhs)) => String(format!("{}{}", lhs, rhs)),
-                            (String(lhs), Float(rhs)) => String(format!("{}{}", lhs, rhs)),
-                            (Integer(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
-                            (Integer(lhs), Integer(rhs)) => Integer(lhs + rhs),
-                            (Integer(lhs), Float(rhs)) => Float(lhs as f32 + rhs),
-                            (Float(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
-                            (Float(lhs), Integer(rhs)) => Float(lhs + rhs as f32),
-                            (Float(lhs), Float(rhs)) => Float(lhs + rhs),
-                        }
-                    })),
+                    Operator::Plus => values.into_iter().fold(Ok(Value::Integer(0)), |acc, x| {
+                        acc.and_then(|acc| {
+                            match (acc, x) {
+                                (String(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
+                                (String(lhs), Integer(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
+                                (String(lhs), Float(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
+                                (Integer(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
+                                (Integer(lhs), Integer(rhs)) => Ok(Integer(lhs + rhs)),
+                                (Integer(lhs), Float(rhs)) => Ok(Float(lhs as f32 + rhs)),
+                                (Float(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
+                                (Float(lhs), Integer(rhs)) => Ok(Float(lhs + rhs as f32)),
+                                (Float(lhs), Float(rhs)) => Ok(Float(lhs + rhs)),
+                                _ => Err(InvalidOperands),
+                            }
+                        })
+                    }),
                     _ => {
                         let mut iter = values.into_iter();
                         let first = iter.next().ok_or(WrongNumberOfArguments)?;
@@ -94,7 +106,7 @@ impl Expression {
                                             Operator::Pow => Ok(Float((lhs as f32).powi(rhs))),
                                             Operator::Plus => Err(InvalidOperands),
                                         }
-                                    },
+                                    }
                                     (Integer(lhs), Float(rhs)) => Ok(compute_float_operation(lhs as f32, op, rhs)),
                                     (Float(lhs), Integer(rhs)) => Ok(compute_float_operation(lhs, op, rhs as f32)),
                                     (Float(lhs), Float(rhs)) => Ok(compute_float_operation(lhs, op, rhs)),
@@ -112,7 +124,7 @@ impl Expression {
                 }
 
                 // TODO
-                Ok((Value::Integer(42)))
+                Ok(Value::Integer(42))
             }
         }
     }
@@ -219,12 +231,12 @@ impl<'a> Parser<'a> {
         })
     }
 
-    pub fn parse_expression(&mut self) -> Result<Expression, ParserError<'a>> {
+    fn parse_expression(&mut self) -> Result<Expression, ParserError<'a>> {
         let expression = match self.view.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => {
                 self.view = &self.view[1..];
                 Expression::Id(id.to_owned())
-            },
+            }
             Token::Literal(l) => {
                 self.view = &self.view[1..];
                 match l {
@@ -234,12 +246,13 @@ impl<'a> Parser<'a> {
                 }
             }
             Token::LeftParenthesis => self.parse_operation()?,
+            Token::LeftBrace => self.parse_scope()?,
             t => return Err(UnexpectedToken(t)),
         };
         Ok(expression)
     }
 
-    pub fn parse_operation(&mut self) -> Result<Expression, ParserError<'a>> {
+    fn parse_operation(&mut self) -> Result<Expression, ParserError<'a>> {
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
             t => return Err(UnexpectedToken(t)),
@@ -261,10 +274,30 @@ impl<'a> Parser<'a> {
                 }
                 _ => {
                     arguments.push(self.parse_expression()?)
-                },
+                }
             }
         }
 
         Ok(Expression::Operation(operator, arguments))
+    }
+
+    fn parse_scope(&mut self) -> Result<Expression, ParserError<'a>> {
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::LeftBrace => (),
+            t => return Err(UnexpectedToken(t)),
+        }
+        self.view = &self.view[1..];
+
+        let mut expressions = vec![];
+        loop {
+            match self.view.first().ok_or(UnexpectedEOF)? {
+                Token::RightBrace => {
+                    self.view = &self.view[1..];
+                    break
+                },
+                _ => expressions.push(self.parse_expression()?)
+            }
+        }
+        Ok(Scope(expressions))
     }
 }

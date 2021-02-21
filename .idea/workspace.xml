@@ -15,9 +15,8 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Start implementing the parser&#10;&#10;I successfully parsed a function definition.">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Arithmetic operation evaluation">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
@@ -137,7 +136,7 @@
       <workItem from="1613601666429" duration="10000" />
       <workItem from="1613858226702" duration="12579000" />
       <workItem from="1613912347110" duration="2541000" />
-      <workItem from="1613914957671" duration="2533000" />
+      <workItem from="1613914957671" duration="4297000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -195,7 +194,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613910915516</updated>
     </task>
-    <option name="localTasksCounter" value="9" />
+    <task id="LOCAL-00009" summary="Arithmetic operation evaluation">
+      <created>1613917507072</created>
+      <option name="number" value="00009" />
+      <option name="presentableId" value="LOCAL-00009" />
+      <option name="project" value="LOCAL" />
+      <updated>1613917507072</updated>
+    </task>
+    <option name="localTasksCounter" value="10" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -222,7 +228,8 @@
     <MESSAGE value="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized" />
     <MESSAGE value="Split Token enum by token category" />
     <MESSAGE value="Start implementing the parser&#10;&#10;I successfully parsed a function definition." />
-    <option name="LAST_COMMIT_MESSAGE" value="Start implementing the parser&#10;&#10;I successfully parsed a function definition." />
+    <MESSAGE value="Arithmetic operation evaluation" />
+    <option name="LAST_COMMIT_MESSAGE" value="Arithmetic operation evaluation" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
