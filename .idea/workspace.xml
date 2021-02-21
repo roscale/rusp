@@ -15,10 +15,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Add scopes as expressions">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Implement function calls">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
@@ -137,7 +136,7 @@
       <workItem from="1613601666429" duration="10000" />
       <workItem from="1613858226702" duration="12579000" />
       <workItem from="1613912347110" duration="2541000" />
-      <workItem from="1613914957671" duration="13709000" />
+      <workItem from="1613914957671" duration="17107000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -209,7 +208,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613919265818</updated>
     </task>
-    <option name="localTasksCounter" value="11" />
+    <task id="LOCAL-00011" summary="Implement function calls">
+      <created>1613948139873</created>
+      <option name="number" value="00011" />
+      <option name="presentableId" value="LOCAL-00011" />
+      <option name="project" value="LOCAL" />
+      <updated>1613948139873</updated>
+    </task>
+    <option name="localTasksCounter" value="12" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -238,7 +244,8 @@
     <MESSAGE value="Start implementing the parser&#10;&#10;I successfully parsed a function definition." />
     <MESSAGE value="Arithmetic operation evaluation" />
     <MESSAGE value="Add scopes as expressions" />
-    <option name="LAST_COMMIT_MESSAGE" value="Add scopes as expressions" />
+    <MESSAGE value="Implement function calls" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement function calls" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

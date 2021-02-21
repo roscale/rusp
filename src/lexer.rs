@@ -43,6 +43,11 @@ pub enum Operator {
     Asterisk,
     Slash,
     Pow,
+    Equal,
+    GreaterThan,
+    LessThan,
+    GreaterThanOrEqual,
+    LessThanOrEqual,
 }
 
 #[derive(Debug)]
@@ -147,6 +152,11 @@ impl<'a> Lexer<'a> {
             [';', ..] => Some((1, Token::Semicolon)),
             [':', ..] => Some((1, Token::Colon)),
             ['.', ..] => Some((1, Token::Dot)),
+            ['=', ..] => Some((1, Token::Operator(Equal))),
+            ['>', '=', ..] => Some((2, Token::Operator(GreaterThanOrEqual))),
+            ['>', ..] => Some((1, Token::Operator(GreaterThan))),
+            ['<', '=', ..] => Some((2, Token::Operator(LessThanOrEqual))),
+            ['<', ..] => Some((1, Token::Operator(LessThan))),
             ['+', ..] => Some((1, Token::Operator(Plus))),
             ['-', ..] => Some((1, Token::Operator(Minus))),
             ['*', '*', ..] => Some((2, Token::Operator(Pow))),
@@ -249,7 +259,7 @@ fn is_valid_identifier_character(c: char) -> bool {
 fn is_punctuation(c: char) -> bool {
     match c {
         ',' | ';' | ':' | '=' | '+' | '-' | '*' | '/' | '.' |
-        '(' | ')' | '[' | ']' | '{' | '}' => true,
+        '<' | '>' | '(' | ')' | '[' | ']' | '{' | '}' => true,
         _ => false,
     }
 }

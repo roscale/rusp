@@ -35,6 +35,7 @@ pub enum Value {
     Integer(i32),
     Float(f32),
     String(String),
+    Boolean(bool),
 }
 
 impl Display for Value {
@@ -44,6 +45,7 @@ impl Display for Value {
             Value::Integer(int) => write!(f, "{}", int),
             Value::Float(float) => write!(f, "{}", float),
             Value::String(string) => write!(f, "{}", string),
+            Value::Boolean(b) => write!(f, "{}", if *b { "true" } else { "false" }),
         }
     }
 }
@@ -92,18 +94,75 @@ impl Expression {
                             }
                         })
                     }),
+                    Operator::Equal => {
+                        let result = values.windows(2).all(|slice| {
+                            match (&slice[0], &slice[1]) {
+                                (Boolean(x), Boolean(y)) => x == y,
+                                (Integer(x), Integer(y)) => x == y,
+                                (Float(x), Float(y)) => x == y,
+                                (String(x), String(y)) => x == y,
+                                _ => false,
+                            }
+                        });
+                        Ok(Boolean(result))
+                    },
+                    Operator::GreaterThan => {
+                        let result = values.windows(2).all(|slice| {
+                            match (&slice[0], &slice[1]) {
+                                (Integer(x), Integer(y)) => x > y,
+                                (Float(x), Float(y)) => x > y,
+                                (String(x), String(y)) => x > y,
+                                _ => false,
+                            }
+                        });
+                        Ok(Boolean(result))
+                    },
+                    Operator::LessThan => {
+                        let result = values.windows(2).all(|slice| {
+                            match (&slice[0], &slice[1]) {
+                                (Integer(x), Integer(y)) => x < y,
+                                (Float(x), Float(y)) => x < y,
+                                (String(x), String(y)) => x < y,
+                                _ => false,
+                            }
+                        });
+                        Ok(Boolean(result))
+                    },
+                    Operator::GreaterThanOrEqual => {
+                        let result = values.windows(2).all(|slice| {
+                            match (&slice[0], &slice[1]) {
+                                (Integer(x), Integer(y)) => x >= y,
+                                (Float(x), Float(y)) => x >= y,
+                                (String(x), String(y)) => x >= y,
+                                _ => false,
+                            }
+                        });
+                        Ok(Boolean(result))
+                    },
+                    Operator::LessThanOrEqual => {
+                        let result = values.windows(2).all(|slice| {
+                            match (&slice[0], &slice[1]) {
+                                (Integer(x), Integer(y)) => x <= y,
+                                (Float(x), Float(y)) => x <= y,
+                                (String(x), String(y)) => x <= y,
+                                _ => false,
+                            }
+                        });
+                        Ok(Boolean(result))
+                    },
                     _ => {
                         let mut iter = values.into_iter();
                         let first = iter.next().ok_or(WrongNumberOfArguments)?;
                         iter.fold(Ok(first), |acc, x| {
                             acc.and_then(|acc| {
-                                fn compute_float_operation(lhs: f32, op: &Operator, rhs: f32) -> Value {
+                                fn compute_float_operation(lhs: f32, op: &Operator, rhs: f32) -> Result<Value, ParserError> {
                                     match op {
-                                        Operator::Plus => Float(lhs + rhs),
-                                        Operator::Minus => Float(lhs - rhs),
-                                        Operator::Asterisk => Float(lhs * rhs),
-                                        Operator::Slash => Float(lhs / rhs),
-                                        Operator::Pow => Float(lhs.powf(rhs)),
+                                        Operator::Plus => Ok(Float(lhs + rhs)),
+                                        Operator::Minus => Ok(Float(lhs - rhs)),
+                                        Operator::Asterisk => Ok(Float(lhs * rhs)),
+                                        Operator::Slash => Ok(Float(lhs / rhs)),
+                                        Operator::Pow => Ok(Float(lhs.powf(rhs))),
+                                        _ => Err(InvalidOperands),
                                     }
                                 }
 
@@ -114,12 +173,12 @@ impl Expression {
                                             Operator::Asterisk => Ok(Integer(lhs * rhs)),
                                             Operator::Slash => Ok(Integer(lhs / rhs)),
                                             Operator::Pow => Ok(Float((lhs as f32).powi(rhs))),
-                                            Operator::Plus => Err(InvalidOperands),
+                                            _ => Err(InvalidOperands),
                                         }
                                     }
-                                    (Integer(lhs), Float(rhs)) => Ok(compute_float_operation(lhs as f32, op, rhs)),
-                                    (Float(lhs), Integer(rhs)) => Ok(compute_float_operation(lhs, op, rhs as f32)),
-                                    (Float(lhs), Float(rhs)) => Ok(compute_float_operation(lhs, op, rhs)),
+                                    (Integer(lhs), Float(rhs)) => compute_float_operation(lhs as f32, op, rhs),
+                                    (Float(lhs), Integer(rhs)) => compute_float_operation(lhs, op, rhs as f32),
+                                    (Float(lhs), Float(rhs)) => compute_float_operation(lhs, op, rhs),
                                     _ => Err(InvalidOperands)
                                 }
                             })
