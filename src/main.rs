@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::lexer::Lexer;
-use crate::parser::{Parser, Value};
+use crate::parser::Parser;
 
 mod lexer;
 mod parser;
@@ -18,25 +18,20 @@ fn main() {
     };
 
     let chars = source.chars().collect::<Vec<_>>();
-    let mut lexer = Lexer::new(chars.as_slice());
-    let result = lexer.tokenize();
+    let tokens = Lexer::new(chars.as_slice()).tokenize();
 
-    match result {
+    match tokens {
         Ok(tokens) => {
-            // dbg!(&tokens);
-
-            let parser = Parser::new(&tokens);
-            let ast = parser.parse();
-            match ast {
-                Ok(ast) => {
-                    // dbg!(&ast);
-                    match ast.first().unwrap().call(&[&Value::Float(10.0)]) {
+            let global_context = Parser::new(&tokens).parse();
+            match global_context {
+                Ok(context) => {
+                    match context.functions.get("main").unwrap().call(&context, vec![]) {
                         Ok(value) => println!("{}", value),
                         Err(err) => {
                             dbg!(&err);
                         },
                     };
-                },
+                }
                 Err(err) => {
                     dbg!(&err);
                 },

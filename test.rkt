@@ -1,5 +1,6 @@
-(fn add (first) {
-    (+ first 4.5)
-    (+ first 4.5)
-    (+ first 3.5)
+(fn main () {
+    (+ (add (increment 1) (increment 2)) " is the result")
 })
+
+(fn increment (x) (+ x 1))
+(fn add (first second) (** first second))

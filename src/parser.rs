@@ -7,8 +7,17 @@ use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
 use crate::parser::ParserError::VariableNotFound;
 
-struct Context<'k, 'v> {
-    variables: HashMap<&'k str, &'v Value>,
+#[derive(Default, Debug)]
+pub struct Context<'p, 'k, 'v> {
+    pub parent_context: Option<&'p Context<'p, 'k, 'v>>,
+    pub functions: HashMap<&'k str, Function<'v, 'v>>,
+    pub variables: HashMap<&'k str, Value>,
+}
+
+impl<'p, 'k, 'v> Context<'p, 'k, 'v> {
+    pub fn get_function(&self, name: &str) -> Option<&Function<'v, 'v>> {
+        self.functions.get(name).or_else(|| self.parent_context.and_then(|c| c.get_function(name)))
+    }
 }
 
 #[derive(Debug)]
@@ -40,18 +49,19 @@ impl Display for Value {
 }
 
 #[derive(Debug)]
-pub enum ParserError<'a> {
-    VariableNotFound(&'a str),
+pub enum ParserError {
+    VariableNotFound(String),
+    FunctionNotFound(String),
     WrongNumberOfArguments,
-    UnexpectedToken(&'a Token),
+    UnexpectedToken(Token),
     UnexpectedEOF,
     InvalidOperands,
 }
 
 impl Expression {
-    fn evaluate<'a>(&'a self, context: &Context) -> Result<Value, ParserError<'a>> {
+    fn evaluate(&self, context: &Context) -> Result<Value, ParserError> {
         match self {
-            Expression::Id(id) => context.variables.get(id as &str).cloned().cloned().ok_or(VariableNotFound(id)),
+            Expression::Id(id) => context.variables.get(id as &str).cloned().ok_or(VariableNotFound(id.to_owned())),
             Expression::Value(value) => Ok(value.clone()),
             Expression::Scope(expressions) => {
                 expressions.iter().fold(Ok(Value::Unit), |_, expression| {
@@ -118,13 +128,12 @@ impl Expression {
                 }
             }
             Expression::FunctionCall(name, arguments) => {
+                let function = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
                 let mut values = vec![];
                 for arg in arguments {
                     values.push(arg.evaluate(context)?);
                 }
-
-                // TODO
-                Ok(Value::Integer(42))
+                function.call(&context, values)
             }
         }
     }
@@ -138,19 +147,21 @@ pub struct Function<'n, 'p> {
 }
 
 impl<'n, 'p> Function<'n, 'p> {
-    pub fn call<'a>(&'a self, args: &[&Value]) -> Result<Value, ParserError<'a>> {
+    pub fn call(&self, context: &Context, args: Vec<Value>) -> Result<Value, ParserError> {
         if self.parameters.len() != args.len() {
             return Err(ParserError::WrongNumberOfArguments);
         }
 
         let context = Context {
+            parent_context: Some(context),
+            functions: HashMap::new(),
             variables: {
-                let mut hashmap = HashMap::<&str, &Value>::new();
-                for (param, arg) in self.parameters.iter().zip(args) {
+                let mut hashmap = HashMap::new();
+                for (&param, arg) in self.parameters.iter().zip(args) {
                     hashmap.insert(param, arg);
                 }
                 hashmap
-            }
+            },
         };
 
         self.body.evaluate(&context)
@@ -159,45 +170,43 @@ impl<'n, 'p> Function<'n, 'p> {
 
 pub struct Parser<'a> {
     view: &'a [Token],
-    functions: Vec<Function<'a, 'a>>,
+    global_context: Context<'a, 'a, 'a>,
 }
-
-type ParserResult<'a> = Result<Vec<Function<'a, 'a>>, ParserError<'a>>;
 
 impl<'a> Parser<'a> {
     pub fn new(view: &'a [Token]) -> Self {
         Self {
             view,
-            functions: vec![],
+            global_context: Context::default(),
         }
     }
 
-    pub fn parse(mut self) -> ParserResult<'a> {
+    pub fn parse(mut self) -> Result<Context<'a, 'a, 'a>, ParserError> {
         loop {
             match self.view {
                 [Token::LeftParenthesis, Token::Keyword(Keyword::Fn), ..] => {
                     let function = self.parse_function()?;
-                    self.functions.push(function);
+                    self.global_context.functions.insert(function.name, function);
                 }
                 [] => break,
-                [token, ..] => return Err(UnexpectedToken(token)),
+                [token, ..] => return Err(UnexpectedToken(token.clone())),
             }
         }
-        Ok(self.functions)
+        Ok(self.global_context)
     }
 
-    pub fn parse_function(&mut self) -> Result<Function<'a, 'a>, ParserError<'a>> {
+    pub fn parse_function(&mut self) -> Result<Function<'a, 'a>, ParserError> {
         self.view = &self.view[2..]; // skip "(fn"
 
         let name = match self.view.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => id,
-            t => return Err(UnexpectedToken(t))
+            t => return Err(UnexpectedToken(t.to_owned()))
         };
         self.view = &self.view[1..];
 
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
-            t => return Err(UnexpectedToken(t)),
+            t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
 
@@ -212,7 +221,7 @@ impl<'a> Parser<'a> {
                     self.view = &self.view[1..];
                     break;
                 }
-                t => return Err(UnexpectedToken(t)),
+                t => return Err(UnexpectedToken(t.to_owned())),
             }
         }
 
@@ -220,7 +229,7 @@ impl<'a> Parser<'a> {
 
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::RightParenthesis => (),
-            t => return Err(UnexpectedToken(t)),
+            t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
 
@@ -231,13 +240,13 @@ impl<'a> Parser<'a> {
         })
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParserError<'a>> {
-        let expression = match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Id(id) => {
+    fn parse_expression(&mut self) -> Result<Expression, ParserError> {
+        let expression = match self.view {
+            [Token::Id(id), ..] => {
                 self.view = &self.view[1..];
                 Expression::Id(id.to_owned())
             }
-            Token::Literal(l) => {
+            [Token::Literal(l), ..] => {
                 self.view = &self.view[1..];
                 match l {
                     Literal::Integer(i) => Expression::Value(Value::Integer(*i)),
@@ -245,23 +254,25 @@ impl<'a> Parser<'a> {
                     Literal::String(s) => Expression::Value(Value::String(s.to_owned())),
                 }
             }
-            Token::LeftParenthesis => self.parse_operation()?,
-            Token::LeftBrace => self.parse_scope()?,
-            t => return Err(UnexpectedToken(t)),
+            [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
+            [Token::LeftParenthesis, Token::Id(_), ..] => self.parse_function_call()?,
+            [Token::LeftBrace, ..] => self.parse_scope()?,
+            [t, ..] => return Err(UnexpectedToken(t.to_owned())),
+            [] => return Err(UnexpectedEOF),
         };
         Ok(expression)
     }
 
-    fn parse_operation(&mut self) -> Result<Expression, ParserError<'a>> {
+    fn parse_operation(&mut self) -> Result<Expression, ParserError> {
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
-            t => return Err(UnexpectedToken(t)),
+            t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
 
         let operator = match self.view.first().ok_or(UnexpectedEOF)? {
             Token::Operator(op) => op.clone(),
-            t => return Err(UnexpectedToken(t))
+            t => return Err(UnexpectedToken(t.to_owned()))
         };
         self.view = &self.view[1..];
 
@@ -281,10 +292,39 @@ impl<'a> Parser<'a> {
         Ok(Expression::Operation(operator, arguments))
     }
 
-    fn parse_scope(&mut self) -> Result<Expression, ParserError<'a>> {
+    fn parse_function_call(&mut self) -> Result<Expression, ParserError> {
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::LeftParenthesis => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Id(id) => id.to_owned(),
+            t => return Err(UnexpectedToken(t.to_owned()))
+        };
+        self.view = &self.view[1..];
+
+        let mut arguments = Vec::new();
+        loop {
+            match self.view.first().ok_or(UnexpectedEOF)? {
+                Token::RightParenthesis => {
+                    self.view = &self.view[1..];
+                    break;
+                }
+                _ => {
+                    arguments.push(self.parse_expression()?)
+                }
+            }
+        }
+
+        Ok(Expression::FunctionCall(name, arguments))
+    }
+
+    fn parse_scope(&mut self) -> Result<Expression, ParserError> {
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::LeftBrace => (),
-            t => return Err(UnexpectedToken(t)),
+            t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
 
@@ -293,8 +333,8 @@ impl<'a> Parser<'a> {
             match self.view.first().ok_or(UnexpectedEOF)? {
                 Token::RightBrace => {
                     self.view = &self.view[1..];
-                    break
-                },
+                    break;
+                }
                 _ => expressions.push(self.parse_expression()?)
             }
         }

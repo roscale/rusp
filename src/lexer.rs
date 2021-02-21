@@ -63,7 +63,7 @@ impl<'a> Lexer<'a> {
         }
     }
 
-    pub fn tokenize(&mut self) -> Result<Vec<Token>, LexerError> {
+    pub fn tokenize(mut self) -> Result<Vec<Token>, LexerError> {
         loop {
             let is_the_last_token_an_operator = {
                 match self.tokens.last() {
@@ -85,7 +85,7 @@ impl<'a> Lexer<'a> {
                 [] => break,
             }
         }
-        Ok(self.tokens.clone())
+        Ok(self.tokens)
     }
 
     fn process_keywords_and_identifiers(&mut self) -> Result<(), LexerError> {
