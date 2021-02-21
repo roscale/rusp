@@ -15,13 +15,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Split Token enum by token category">
-      <change afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Start implementing the parser&#10;&#10;I successfully parsed a function definition.">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.py" beforeDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -136,7 +135,9 @@
       <workItem from="1613308069780" duration="8053000" />
       <workItem from="1613559410427" duration="641000" />
       <workItem from="1613601666429" duration="10000" />
-      <workItem from="1613858226702" duration="11073000" />
+      <workItem from="1613858226702" duration="12579000" />
+      <workItem from="1613912347110" duration="2541000" />
+      <workItem from="1613914957671" duration="2533000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -187,7 +188,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613859961377</updated>
     </task>
-    <option name="localTasksCounter" value="8" />
+    <task id="LOCAL-00008" summary="Start implementing the parser&#10;&#10;I successfully parsed a function definition.">
+      <created>1613910915516</created>
+      <option name="number" value="00008" />
+      <option name="presentableId" value="LOCAL-00008" />
+      <option name="project" value="LOCAL" />
+      <updated>1613910915516</updated>
+    </task>
+    <option name="localTasksCounter" value="9" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -213,7 +221,8 @@
     <MESSAGE value="Rewritten the lexer using a different architecture" />
     <MESSAGE value="Fix a bug with the tokenizer&#10;&#10;The identifier at the end of the string wouldn't get tokenized" />
     <MESSAGE value="Split Token enum by token category" />
-    <option name="LAST_COMMIT_MESSAGE" value="Split Token enum by token category" />
+    <MESSAGE value="Start implementing the parser&#10;&#10;I successfully parsed a function definition." />
+    <option name="LAST_COMMIT_MESSAGE" value="Start implementing the parser&#10;&#10;I successfully parsed a function definition." />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

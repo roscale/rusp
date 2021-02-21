@@ -4,6 +4,7 @@ use ParserError::*;
 
 use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::ParserError::VariableNotFound;
+use std::fmt::{Display, Formatter};
 
 struct Context<'k, 'v> {
     variables: HashMap<&'k str, &'v Value>,
@@ -14,13 +15,24 @@ enum Expression {
     Id(String),
     Value(Value),
     Operation(Operator, Vec<Expression>),
+    FunctionCall(String, Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
-enum Value {
+pub enum Value {
     Integer(i32),
     Float(f32),
     String(String),
+}
+
+impl Display for Value {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Value::Integer(int) => write!(f, "{}", int),
+            Value::Float(float) => write!(f, "{}", float),
+            Value::String(string) => write!(f, "{}", string),
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -29,6 +41,7 @@ pub enum ParserError<'a> {
     WrongNumberOfArguments,
     UnexpectedToken(&'a Token),
     UnexpectedEOF,
+    InvalidOperands,
 }
 
 impl Expression {
@@ -42,14 +55,64 @@ impl Expression {
                     values.push(op.evaluate(context)?);
                 }
 
-                Ok(Value::Integer(42))
+                use Value::*;
+                match op {
+                    Operator::Plus => Ok(values.into_iter().fold(Value::Integer(0), |acc, x| {
+                        match (acc, x) {
+                            (String(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
+                            (String(lhs), Integer(rhs)) => String(format!("{}{}", lhs, rhs)),
+                            (String(lhs), Float(rhs)) => String(format!("{}{}", lhs, rhs)),
+                            (Integer(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
+                            (Integer(lhs), Integer(rhs)) => Integer(lhs + rhs),
+                            (Integer(lhs), Float(rhs)) => Float(lhs as f32 + rhs),
+                            (Float(lhs), String(rhs)) => String(format!("{}{}", lhs, rhs)),
+                            (Float(lhs), Integer(rhs)) => Float(lhs + rhs as f32),
+                            (Float(lhs), Float(rhs)) => Float(lhs + rhs),
+                        }
+                    })),
+                    _ => {
+                        let mut iter = values.into_iter();
+                        let first = iter.next().ok_or(WrongNumberOfArguments)?;
+                        iter.fold(Ok(first), |acc, x| {
+                            acc.and_then(|acc| {
+                                fn compute_float_operation(lhs: f32, op: &Operator, rhs: f32) -> Value {
+                                    match op {
+                                        Operator::Plus => Float(lhs + rhs),
+                                        Operator::Minus => Float(lhs - rhs),
+                                        Operator::Asterisk => Float(lhs * rhs),
+                                        Operator::Slash => Float(lhs / rhs),
+                                        Operator::Pow => Float(lhs.powf(rhs)),
+                                    }
+                                }
 
-                // let lhs = lhs.evaluate(context)?;
-                // let rhs = rhs.evaluate(context)?;
-                // match (lhs, op, rhs) {
-                //     (Value::Integer(lhs), Operator::Plus, Value::Integer(rhs)) => Ok(Value::Integer(lhs + rhs)),
-                //     (lhs, _, _) => Ok(lhs),
-                // }
+                                match (acc, x) {
+                                    (Integer(lhs), Integer(rhs)) => {
+                                        match op {
+                                            Operator::Minus => Ok(Integer(lhs - rhs)),
+                                            Operator::Asterisk => Ok(Integer(lhs * rhs)),
+                                            Operator::Slash => Ok(Integer(lhs / rhs)),
+                                            Operator::Pow => Ok(Float((lhs as f32).powi(rhs))),
+                                            Operator::Plus => Err(InvalidOperands),
+                                        }
+                                    },
+                                    (Integer(lhs), Float(rhs)) => Ok(compute_float_operation(lhs as f32, op, rhs)),
+                                    (Float(lhs), Integer(rhs)) => Ok(compute_float_operation(lhs, op, rhs as f32)),
+                                    (Float(lhs), Float(rhs)) => Ok(compute_float_operation(lhs, op, rhs)),
+                                    _ => Err(InvalidOperands)
+                                }
+                            })
+                        })
+                    }
+                }
+            }
+            Expression::FunctionCall(name, arguments) => {
+                let mut values = vec![];
+                for arg in arguments {
+                    values.push(arg.evaluate(context)?);
+                }
+
+                // TODO
+                Ok((Value::Integer(42)))
             }
         }
     }
@@ -63,7 +126,7 @@ pub struct Function<'n, 'p> {
 }
 
 impl<'n, 'p> Function<'n, 'p> {
-    fn call<'a>(&'a self, args: &[&Value]) -> Result<Value, ParserError<'a>> {
+    pub fn call<'a>(&'a self, args: &[&Value]) -> Result<Value, ParserError<'a>> {
         if self.parameters.len() != args.len() {
             return Err(ParserError::WrongNumberOfArguments);
         }
@@ -98,15 +161,17 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(mut self) -> ParserResult<'a> {
-        match self.view {
-            [Token::LeftParenthesis, Token::Keyword(Keyword::Fn), ..] => {
-                let function = self.parse_function()?;
-                self.functions.push(function);
+        loop {
+            match self.view {
+                [Token::LeftParenthesis, Token::Keyword(Keyword::Fn), ..] => {
+                    let function = self.parse_function()?;
+                    self.functions.push(function);
+                }
+                [] => break,
+                [token, ..] => return Err(UnexpectedToken(token)),
             }
-            [] => (),
-            [token, ..] => return Err(UnexpectedToken(token)),
         }
-        Ok((self.functions))
+        Ok(self.functions)
     }
 
     pub fn parse_function(&mut self) -> Result<Function<'a, 'a>, ParserError<'a>> {

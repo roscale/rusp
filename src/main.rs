@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::lexer::Lexer;
-use crate::parser::Parser;
+use crate::parser::{Parser, ParserError, Value};
 
 mod lexer;
 mod parser;
@@ -29,7 +29,13 @@ fn main() {
             let ast = parser.parse();
             match ast {
                 Ok(ast) => {
-                    dbg!(&ast);
+                    // dbg!(&ast);
+                    match ast.first().unwrap().call(&[&Value::Float(10.0)]) {
+                        Ok(value) => println!("{}", value),
+                        Err(err) => {
+                            dbg!(&err);
+                        },
+                    };
                 },
                 Err(err) => {
                     dbg!(&err);

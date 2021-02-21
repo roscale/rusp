@@ -38,7 +38,6 @@ pub enum Keyword {
 
 #[derive(Debug, Clone)]
 pub enum Operator {
-    Equal,
     Plus,
     Minus,
     Asterisk,
@@ -148,7 +147,6 @@ impl<'a> Lexer<'a> {
             [';', ..] => Some((1, Token::Semicolon)),
             [':', ..] => Some((1, Token::Colon)),
             ['.', ..] => Some((1, Token::Dot)),
-            ['=', ..] => Some((1, Token::Operator(Equal))),
             ['+', ..] => Some((1, Token::Operator(Plus))),
             ['-', ..] => Some((1, Token::Operator(Minus))),
             ['*', '*', ..] => Some((2, Token::Operator(Pow))),
