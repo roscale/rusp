@@ -1,7 +1,8 @@
-(fn main () {
+fn demo (a) {
+    fn increment (x) (+ x a)
     (+ (add (increment 1) (increment 2)) " is the result")
-    (<= "fds" "fds")
-})
+}
 
-(fn increment (x) (+ x 1))
-(fn add (first second) (** first second))
+fn add (first second) (** first second)
+
+(demo 2)

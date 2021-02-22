@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
 
+use crate::interpreter::InterpreterError::{FunctionNotFound, InvalidOperands, VariableNotFound, WrongNumberOfArguments};
 use crate::lexer::Operator;
 use crate::parser::{Context, Expression, Function, Value};
-use crate::interpreter::InterpreterError::{VariableNotFound, InvalidOperands, WrongNumberOfArguments, FunctionNotFound};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub enum InterpreterError {
@@ -14,8 +15,15 @@ pub enum InterpreterError {
 }
 
 impl<'a> Context<'a> {
-    pub fn get_function(&self, name: &str) -> Option<&Function<'a>> {
-        self.functions.get(name).or_else(|| self.parent_context.and_then(|c| c.get_function(name)))
+    pub fn get_variable(&self, name: &str) -> Option<&Value> {
+        self.variables.get(name).or_else(|| self.parent_context.and_then(|c| c.get_variable(name)))
+    }
+
+    pub fn get_function(&self, name: &str) -> Option<(&Context, Rc<Function>)> {
+        match self.functions.get(name).cloned() {
+            Some(function) => Some((self, function)),
+            None => self.parent_context.and_then(|c| c.get_function(name))
+        }
     }
 }
 
@@ -32,14 +40,20 @@ impl Display for Value {
 }
 
 impl Expression {
-    fn evaluate(&self, context: &Context) -> Result<Value, InterpreterError> {
+    pub(crate) fn evaluate<'a>(&'a self, context: &mut Context<'a>) -> Result<Value, InterpreterError> {
         match self {
-            Expression::Id(id) => context.variables.get(id as &str).cloned().ok_or(VariableNotFound(id.to_owned())),
+            Expression::Id(id) => context.get_variable(id as &str).cloned().ok_or(VariableNotFound(id.to_owned())),
             Expression::Value(value) => Ok(value.clone()),
             Expression::Scope(expressions) => {
-                expressions.iter().fold(Ok(Value::Unit), |_, expression| {
-                    expression.evaluate(context)
+                let mut context = Context::with_parent(&context);
+
+                expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
+                    acc.and(expression.evaluate(&mut context))
                 })
+            }
+            Expression::Function(function) => {
+                context.functions.insert(&function.name, function.clone());
+                Ok(Value::Unit)
             }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
@@ -158,35 +172,34 @@ impl Expression {
                 }
             }
             Expression::FunctionCall(name, arguments) => {
-                let function = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
                 let mut values = vec![];
                 for arg in arguments {
                     values.push(arg.evaluate(context)?);
                 }
-                function.call(&context, values)
+                let (fn_context, function) = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
+                function.call(fn_context, values)
             }
         }
     }
 }
 
-impl<'a> Function<'a> {
+impl<'a> Function {
     pub fn call(&self, context: &Context, args: Vec<Value>) -> Result<Value, InterpreterError> {
         if self.parameters.len() != args.len() {
             return Err(InterpreterError::WrongNumberOfArguments);
         }
 
-        let context = Context {
+        let mut context = Context {
             parent_context: Some(context),
             functions: HashMap::new(),
             variables: {
                 let mut hashmap = HashMap::new();
-                for (&param, arg) in self.parameters.iter().zip(args) {
-                    hashmap.insert(param, arg);
+                for (param, arg) in self.parameters.iter().zip(args) {
+                    hashmap.insert(param as &str, arg);
                 }
                 hashmap
             },
         };
-
-        self.body.evaluate(&context)
+        self.body.evaluate(&mut context)
     }
 }

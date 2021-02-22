@@ -4,7 +4,7 @@ use std::fs::File;
 use std::io::Read;
 
 use crate::lexer::Lexer;
-use crate::parser::Parser;
+use crate::parser::{Parser, Context, Value};
 
 mod lexer;
 mod parser;
@@ -23,15 +23,20 @@ fn main() {
 
     match tokens {
         Ok(tokens) => {
-            let global_context = Parser::new(&tokens).parse();
-            match global_context {
-                Ok(context) => {
-                    match context.functions.get("main").unwrap().call(&context, vec![]) {
-                        Ok(value) => println!("{}", value),
-                        Err(err) => {
-                            dbg!(&err);
+            let expressions = Parser::new(&tokens).parse();
+            match expressions {
+                Ok(expressions) => {
+                    let mut global_context = Context::default();
+                    let result = expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
+                        acc.and(expression.evaluate(&mut global_context))
+                    });
+
+                    match result {
+                        Ok(result) => println!("{}", result),
+                        Err(e) => {
+                            dbg!(e);
                         },
-                    };
+                    }
                 }
                 Err(err) => {
                     dbg!(&err);

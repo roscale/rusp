@@ -15,10 +15,12 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Reorganize some functions">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Simplify lifetimes of some structs">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/interpreter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/interpreter.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -95,11 +97,6 @@
         <option name="CARGO.BUILD_TASK_PROVIDER" enabled="true" />
       </method>
     </configuration>
-    <configuration default="true" type="GradleAppRunConfiguration" factoryName="Application" REDIRECT_INPUT="false" ELEVATE="false" PASS_PARENT_ENVS_2="true">
-      <method v="2">
-        <option name="com.jetbrains.cidr.cpp.gradle.execution.GradleNativeBuildBeforeRunTaskProvider$BuildBeforeRunTask" enabled="true" />
-      </method>
-    </configuration>
     <list>
       <item itemvalue="Cargo.Run" />
       <item itemvalue="Cargo.Run release" />
@@ -135,7 +132,8 @@
       <workItem from="1613601666429" duration="10000" />
       <workItem from="1613858226702" duration="12579000" />
       <workItem from="1613912347110" duration="2541000" />
-      <workItem from="1613914957671" duration="18902000" />
+      <workItem from="1613914957671" duration="19864000" />
+      <workItem from="1614023322332" duration="7142000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -228,7 +226,14 @@
       <option name="project" value="LOCAL" />
       <updated>1613952911880</updated>
     </task>
-    <option name="localTasksCounter" value="14" />
+    <task id="LOCAL-00014" summary="Simplify lifetimes of some structs">
+      <created>1613953639278</created>
+      <option name="number" value="00014" />
+      <option name="presentableId" value="LOCAL-00014" />
+      <option name="project" value="LOCAL" />
+      <updated>1613953639278</updated>
+    </task>
+    <option name="localTasksCounter" value="15" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -260,7 +265,8 @@
     <MESSAGE value="Implement function calls" />
     <MESSAGE value="Add comparison operators" />
     <MESSAGE value="Reorganize some functions" />
-    <option name="LAST_COMMIT_MESSAGE" value="Reorganize some functions" />
+    <MESSAGE value="Simplify lifetimes of some structs" />
+    <option name="LAST_COMMIT_MESSAGE" value="Simplify lifetimes of some structs" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
