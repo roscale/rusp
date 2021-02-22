@@ -44,6 +44,11 @@ impl Expression {
         match self {
             Expression::Id(id) => context.get_variable(id as &str).cloned().ok_or(VariableNotFound(id.to_owned())),
             Expression::Value(value) => Ok(value.clone()),
+            Expression::Declaration(name, rhs) => {
+                let rhs = rhs.evaluate(context)?;
+                context.variables.insert(name, rhs);
+                Ok(Value::Unit)
+            }
             Expression::Scope(expressions) => {
                 let mut context = Context::with_parent(&context);
 
@@ -54,6 +59,14 @@ impl Expression {
             Expression::Function(function) => {
                 context.functions.insert(&function.name, function.clone());
                 Ok(Value::Unit)
+            }
+            Expression::FunctionCall(name, arguments) => {
+                let mut values = vec![];
+                for arg in arguments {
+                    values.push(arg.evaluate(context)?);
+                }
+                let (fn_context, function) = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
+                function.call(fn_context, values)
             }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
@@ -170,14 +183,6 @@ impl Expression {
                         })
                     }
                 }
-            }
-            Expression::FunctionCall(name, arguments) => {
-                let mut values = vec![];
-                for arg in arguments {
-                    values.push(arg.evaluate(context)?);
-                }
-                let (fn_context, function) = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
-                function.call(fn_context, values)
             }
         }
     }

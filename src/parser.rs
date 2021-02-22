@@ -26,6 +26,7 @@ impl<'a> Context<'a> {
 pub enum Expression {
     Id(String),
     Value(Value),
+    Declaration(String, Box<Expression>),
     Operation(Operator, Vec<Expression>),
     Scope(Vec<Expression>),
     Function(Rc<Function>),
@@ -78,6 +79,31 @@ impl<'a> Parser<'a> {
         Ok(expressions)
     }
 
+    fn parse_expression(&mut self) -> Result<Expression, ParserError> {
+        let expression = match self.view {
+            [Token::Id(id), ..] => {
+                self.view = &self.view[1..];
+                Expression::Id(id.to_owned())
+            }
+            [Token::Literal(l), ..] => {
+                self.view = &self.view[1..];
+                match l {
+                    Literal::Integer(i) => Expression::Value(Value::Integer(*i)),
+                    Literal::Float(f) => Expression::Value(Value::Float(*f)),
+                    Literal::String(s) => Expression::Value(Value::String(s.to_owned())),
+                }
+            }
+            [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
+            [Token::LeftParenthesis, Token::Id(_), ..] => self.parse_function_call()?,
+            [Token::LeftBrace, ..] => self.parse_scope()?,
+            [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
+            [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
+            [t, ..] => return Err(UnexpectedToken(t.to_owned())),
+            [] => return Err(UnexpectedEOF),
+        };
+        Ok(expression)
+    }
+
     pub fn parse_function(&mut self) -> Result<Expression, ParserError> {
         self.view = &self.view[1..]; // skip "fn"
 
@@ -117,28 +143,28 @@ impl<'a> Parser<'a> {
         })))
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParserError> {
-        let expression = match self.view {
-            [Token::Id(id), ..] => {
-                self.view = &self.view[1..];
-                Expression::Id(id.to_owned())
-            }
-            [Token::Literal(l), ..] => {
-                self.view = &self.view[1..];
-                match l {
-                    Literal::Integer(i) => Expression::Value(Value::Integer(*i)),
-                    Literal::Float(f) => Expression::Value(Value::Float(*f)),
-                    Literal::String(s) => Expression::Value(Value::String(s.to_owned())),
-                }
-            }
-            [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
-            [Token::LeftParenthesis, Token::Id(_), ..] => self.parse_function_call()?,
-            [Token::LeftBrace, ..] => self.parse_scope()?,
-            [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
-            [t, ..] => return Err(UnexpectedToken(t.to_owned())),
-            [] => return Err(UnexpectedEOF),
+    fn parse_declaration(&mut self) -> Result<Expression, ParserError> {
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Keyword(Keyword::Let) => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Id(id) => id,
+            t => return Err(UnexpectedToken(t.to_owned())),
         };
-        Ok(expression)
+        self.view = &self.view[1..];
+
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Operator(Operator::Equal) => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let rhs = self.parse_expression()?;
+
+        Ok(Expression::Declaration(name.to_owned(), Box::new(rhs)))
     }
 
     fn parse_operation(&mut self) -> Result<Expression, ParserError> {

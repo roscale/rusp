@@ -34,6 +34,7 @@ pub enum Keyword {
     True,
     False,
     Fn,
+    Let,
 }
 
 #[derive(Debug, Clone)]
@@ -110,6 +111,7 @@ impl<'a> Lexer<'a> {
                         "true" => Token::Keyword(True),
                         "false" => Token::Keyword(False),
                         "fn" => Token::Keyword(Fn),
+                        "let" => Token::Keyword(Let),
                         _ => Token::Id(start[..i].iter().collect::<String>())
                     };
                     Some(token)
