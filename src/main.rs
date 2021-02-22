@@ -8,6 +8,7 @@ use crate::parser::Parser;
 
 mod lexer;
 mod parser;
+mod interpreter;
 
 fn main() {
     let source = {
