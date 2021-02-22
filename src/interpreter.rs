@@ -13,8 +13,8 @@ pub enum InterpreterError {
     InvalidOperands,
 }
 
-impl<'p, 'k, 'v> Context<'p, 'k, 'v> {
-    pub fn get_function(&self, name: &str) -> Option<&Function<'v, 'v>> {
+impl<'a> Context<'a> {
+    pub fn get_function(&self, name: &str) -> Option<&Function<'a>> {
         self.functions.get(name).or_else(|| self.parent_context.and_then(|c| c.get_function(name)))
     }
 }
@@ -169,7 +169,7 @@ impl Expression {
     }
 }
 
-impl<'n, 'p> Function<'n, 'p> {
+impl<'a> Function<'a> {
     pub fn call(&self, context: &Context, args: Vec<Value>) -> Result<Value, InterpreterError> {
         if self.parameters.len() != args.len() {
             return Err(InterpreterError::WrongNumberOfArguments);

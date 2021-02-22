@@ -6,10 +6,10 @@ use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
 
 #[derive(Default, Debug)]
-pub struct Context<'p, 'k, 'v> {
-    pub parent_context: Option<&'p Context<'p, 'k, 'v>>,
-    pub functions: HashMap<&'k str, Function<'v, 'v>>,
-    pub variables: HashMap<&'k str, Value>,
+pub struct Context<'a> {
+    pub parent_context: Option<&'a Context<'a>>,
+    pub functions: HashMap<&'a str, Function<'a>>,
+    pub variables: HashMap<&'a str, Value>,
 }
 
 #[derive(Debug)]
@@ -37,15 +37,15 @@ pub enum ParserError {
 }
 
 #[derive(Debug)]
-pub struct Function<'n, 'p> {
-    pub(crate) name: &'n str,
-    pub(crate) parameters: Vec<&'p str>,
+pub struct Function<'a> {
+    pub(crate) name: &'a str,
+    pub(crate) parameters: Vec<&'a str>,
     pub(crate) body: Expression,
 }
 
 pub struct Parser<'a> {
     view: &'a [Token],
-    global_context: Context<'a, 'a, 'a>,
+    global_context: Context<'a>,
 }
 
 impl<'a> Parser<'a> {
@@ -56,7 +56,7 @@ impl<'a> Parser<'a> {
         }
     }
 
-    pub fn parse(mut self) -> Result<Context<'a, 'a, 'a>, ParserError> {
+    pub fn parse(mut self) -> Result<Context<'a>, ParserError> {
         loop {
             match self.view {
                 [Token::LeftParenthesis, Token::Keyword(Keyword::Fn), ..] => {
@@ -70,7 +70,7 @@ impl<'a> Parser<'a> {
         Ok(self.global_context)
     }
 
-    pub fn parse_function(&mut self) -> Result<Function<'a, 'a>, ParserError> {
+    pub fn parse_function(&mut self) -> Result<Function<'a>, ParserError> {
         self.view = &self.view[2..]; // skip "(fn"
 
         let name = match self.view.first().ok_or(UnexpectedEOF)? {
