@@ -10,7 +10,6 @@ use crate::parser::Expression::Scope;
 #[derive(Default, Debug)]
 pub struct Context {
     pub parent_context: Option<Rc<RefCell<Context>>>,
-    pub functions: HashMap<String, Rc<Function>>,
     pub variables: HashMap<String, Value>,
 }
 
@@ -35,7 +34,7 @@ pub enum Expression {
         parameters: Vec<String>,
         body: Box<Expression>,
     },
-    FunctionCall(String, Vec<Expression>),
+    FunctionCall(Box<Expression>, Vec<Expression>),
 }
 
 #[derive(Debug, Clone)]
@@ -45,6 +44,7 @@ pub enum Value {
     Float(f32),
     String(String),
     Boolean(bool),
+    Function(Function),
 }
 
 #[derive(Debug)]
@@ -53,7 +53,7 @@ pub enum ParserError {
     UnexpectedEOF,
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct Function {
     pub(crate) closing_context: Rc<RefCell<Context>>,
     pub(crate) name: String,
@@ -100,7 +100,7 @@ impl<'a> Parser<'a> {
                 }
             }
             [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
-            [Token::LeftParenthesis, Token::Id(_), ..] => self.parse_function_call()?,
+            [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
             [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
@@ -209,11 +209,7 @@ impl<'a> Parser<'a> {
         }
         self.view = &self.view[1..];
 
-        let name = match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Id(id) => id.to_owned(),
-            t => return Err(UnexpectedToken(t.to_owned()))
-        };
-        self.view = &self.view[1..];
+        let function_ptr = self.parse_expression()?;
 
         let mut arguments = Vec::new();
         loop {
@@ -228,7 +224,7 @@ impl<'a> Parser<'a> {
             }
         }
 
-        Ok(Expression::FunctionCall(name, arguments))
+        Ok(Expression::FunctionCall(Box::new(function_ptr), arguments))
     }
 
     fn parse_scope(&mut self) -> Result<Expression, ParserError> {

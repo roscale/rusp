@@ -17,7 +17,6 @@ pub enum InterpreterError {
 
 pub trait ContextTrait {
     fn get_variable(&self, name: &str) -> Option<Value>;
-    fn get_function(&self, name: &str) -> Option<Rc<Function>>;
 }
 
 impl ContextTrait for Rc<RefCell<Context>> {
@@ -26,14 +25,6 @@ impl ContextTrait for Rc<RefCell<Context>> {
         match b.variables.get(name) {
             None => b.parent_context.as_ref().and_then(|p| p.get_variable(name)),
             Some(value) => Some(value.clone())
-        }
-    }
-
-    fn get_function(&self, name: &str) -> Option<Rc<Function>> {
-        let b = RefCell::borrow(self);
-        match b.functions.get(name).cloned() {
-            Some(function) => Some(function),
-            None => b.parent_context.as_ref().and_then(|c| c.get_function(name))
         }
     }
 }
@@ -46,6 +37,7 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{}", float),
             Value::String(string) => write!(f, "{}", string),
             Value::Boolean(b) => write!(f, "{}", if *b { "true" } else { "false" }),
+            Value::Function(fun) => write!(f, "fn {}", fun.name),
         }
     }
 }
@@ -68,7 +60,7 @@ impl Expression {
                 })
             }
             Expression::FunctionDefinition { name, parameters, body } => {
-                context.borrow_mut().functions.insert(name.to_owned(), Rc::new(Function {
+                context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function {
                     closing_context: context.clone(),
                     name: name.to_owned(),
                     parameters: parameters.to_owned(),
@@ -76,13 +68,15 @@ impl Expression {
                 }));
                 Ok(Value::Unit)
             }
-            Expression::FunctionCall(name, arguments) => {
+            Expression::FunctionCall(function_ptr, arguments) => {
                 let mut values = vec![];
                 for arg in arguments {
                     values.push(arg.evaluate(context.clone())?);
                 }
-                let function = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
-                function.call(values)
+                match function_ptr.evaluate(context)? {
+                    Value::Function(f) => f.call(values),
+                    v => Err(FunctionNotFound(v.to_string()))
+                }
             }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
@@ -212,7 +206,6 @@ impl Function {
 
         let context = Rc::new(RefCell::new(Context {
             parent_context: Some(self.closing_context.clone()),
-            functions: HashMap::new(),
             variables: {
                 let mut hashmap = HashMap::new();
                 for (param, arg) in self.parameters.iter().zip(args) {

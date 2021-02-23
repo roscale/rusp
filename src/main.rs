@@ -1,4 +1,5 @@
 #![feature(or_patterns)]
+#![feature(box_patterns)]
 
 use std::fs::File;
 use std::io::Read;

@@ -15,9 +15,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Checkpoint dynamic context borrowing WIP">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Make contexts reference counted&#10;&#10;This will allow for returning closures while keeping the captured &#10;context alive. For this reason, the lifetime of a context is no longer &#10;trivial and cannot be determined at compile-time.">
+      <change beforePath="$PROJECT_DIR$/.idea/vcs.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/vcs.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/interpreter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/interpreter.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
@@ -251,7 +253,14 @@
       <option name="project" value="LOCAL" />
       <updated>1614096537115</updated>
     </task>
-    <option name="localTasksCounter" value="17" />
+    <task id="LOCAL-00017" summary="Make contexts reference counted&#10;&#10;This will allow for returning closures while keeping the captured &#10;context alive. For this reason, the lifetime of a context is no longer &#10;trivial and cannot be determined at compile-time.">
+      <created>1614098569028</created>
+      <option name="number" value="00017" />
+      <option name="presentableId" value="LOCAL-00017" />
+      <option name="project" value="LOCAL" />
+      <updated>1614098569028</updated>
+    </task>
+    <option name="localTasksCounter" value="18" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -287,7 +296,8 @@
     <MESSAGE value="Simplify lifetimes of some structs" />
     <MESSAGE value="Make functions expressions" />
     <MESSAGE value="Checkpoint dynamic context borrowing WIP" />
-    <option name="LAST_COMMIT_MESSAGE" value="Checkpoint dynamic context borrowing WIP" />
+    <MESSAGE value="Make contexts reference counted&#10;&#10;This will allow for returning closures while keeping the captured &#10;context alive. For this reason, the lifetime of a context is no longer &#10;trivial and cannot be determined at compile-time." />
+    <option name="LAST_COMMIT_MESSAGE" value="Make contexts reference counted&#10;&#10;This will allow for returning closures while keeping the captured &#10;context alive. For this reason, the lifetime of a context is no longer &#10;trivial and cannot be determined at compile-time." />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
