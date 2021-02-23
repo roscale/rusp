@@ -27,6 +27,7 @@ pub enum Expression {
     Id(String),
     Value(Value),
     Declaration(String, Box<Expression>),
+    Assignment(String, Box<Expression>),
     Operation(Operator, Vec<Expression>),
     Scope(Vec<Expression>),
     FunctionDefinition {
@@ -87,6 +88,7 @@ impl<'a> Parser<'a> {
 
     fn parse_expression(&mut self) -> Result<Expression, ParserError> {
         let expression = match self.view {
+            [Token::Id(_), Token::Operator(Operator::Equal), ..] => self.parse_assignment()?,
             [Token::Id(id), ..] => {
                 self.view = &self.view[1..];
                 Expression::Id(id.to_owned())
@@ -171,6 +173,24 @@ impl<'a> Parser<'a> {
         let rhs = self.parse_expression()?;
 
         Ok(Expression::Declaration(name.to_owned(), Box::new(rhs)))
+    }
+
+    fn parse_assignment(&mut self) -> Result<Expression, ParserError> {
+        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Id(id) => id,
+            t => return Err(UnexpectedToken(t.to_owned())),
+        };
+        self.view = &self.view[1..];
+
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Operator(Operator::Equal) => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let rhs = self.parse_expression()?;
+
+        Ok(Expression::Assignment(name.to_owned(), Box::new(rhs)))
     }
 
     fn parse_operation(&mut self) -> Result<Expression, ParserError> {

@@ -17,6 +17,7 @@ pub enum InterpreterError {
 
 pub trait ContextTrait {
     fn get_variable(&self, name: &str) -> Option<Value>;
+    fn set_variable(&self, name: &str, value: Value) -> Result<(), ()>;
 }
 
 impl ContextTrait for Rc<RefCell<Context>> {
@@ -25,6 +26,17 @@ impl ContextTrait for Rc<RefCell<Context>> {
         match b.variables.get(name) {
             None => b.parent_context.as_ref().and_then(|p| p.get_variable(name)),
             Some(value) => Some(value.clone())
+        }
+    }
+
+    fn set_variable(&self, name: &str, new_value: Value) -> Result<(), ()> {
+        let mut b = RefCell::borrow_mut(self);
+        match b.variables.get_mut(name) {
+            None => b.parent_context.as_ref().ok_or(()).and_then(|p| p.set_variable(name, new_value)),
+            Some(value) => {
+                *value = new_value;
+                Ok(())
+            }
         }
     }
 }
@@ -50,6 +62,11 @@ impl Expression {
             Expression::Declaration(name, rhs) => {
                 let rhs = rhs.evaluate(context.clone())?;
                 context.borrow_mut().variables.insert(name.to_owned(), rhs);
+                Ok(Value::Unit)
+            }
+            Expression::Assignment(name, rhs) => {
+                let rhs = rhs.evaluate(context.clone())?;
+                context.set_variable(name, rhs).map_err(|_| VariableNotFound(name.to_owned()))?;
                 Ok(Value::Unit)
             }
             Expression::Scope(expressions) => {
