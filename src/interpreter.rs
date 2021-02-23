@@ -5,6 +5,7 @@ use crate::interpreter::InterpreterError::{FunctionNotFound, InvalidOperands, Va
 use crate::lexer::Operator;
 use crate::parser::{Context, Expression, Function, Value};
 use std::rc::Rc;
+use std::cell::RefCell;
 
 #[derive(Debug)]
 pub enum InterpreterError {
@@ -14,15 +15,25 @@ pub enum InterpreterError {
     InvalidOperands,
 }
 
-impl<'a> Context<'a> {
-    pub fn get_variable(&self, name: &str) -> Option<&Value> {
-        self.variables.get(name).or_else(|| self.parent_context.and_then(|c| c.get_variable(name)))
+pub trait ContextTrait {
+    fn get_variable(&self, name: &str) -> Option<Value>;
+    fn get_function(&self, name: &str) -> Option<(Self, Rc<Function>)> where Self: Sized;
+}
+
+impl ContextTrait for Rc<RefCell<Context>> {
+    fn get_variable(&self, name: &str) -> Option<Value> {
+        let b = RefCell::borrow(self);
+        match b.variables.get(name) {
+            None => b.parent_context.as_ref().and_then(|p| p.get_variable(name)),
+            Some(value) => Some(value.clone())
+        }
     }
 
-    pub fn get_function(&self, name: &str) -> Option<(&Context, Rc<Function>)> {
-        match self.functions.get(name).cloned() {
-            Some(function) => Some((self, function)),
-            None => self.parent_context.and_then(|c| c.get_function(name))
+    fn get_function(&self, name: &str) -> Option<(Self, Rc<Function>)> {
+        let b = RefCell::borrow(self);
+        match b.functions.get(name).cloned() {
+            Some(function) => Some((self.clone(), function)),
+            None => b.parent_context.as_ref().and_then(|c| c.get_function(name))
         }
     }
 }
@@ -40,30 +51,30 @@ impl Display for Value {
 }
 
 impl Expression {
-    pub(crate) fn evaluate<'a>(&'a self, context: &mut Context<'a>) -> Result<Value, InterpreterError> {
+    pub(crate) fn evaluate(&self, context: Rc<RefCell<Context>>) -> Result<Value, InterpreterError> {
         match self {
-            Expression::Id(id) => context.get_variable(id as &str).cloned().ok_or(VariableNotFound(id.to_owned())),
+            Expression::Id(id) => context.get_variable(id as &str).ok_or(VariableNotFound(id.to_owned())),
             Expression::Value(value) => Ok(value.clone()),
             Expression::Declaration(name, rhs) => {
-                let rhs = rhs.evaluate(context)?;
-                context.variables.insert(name, rhs);
+                let rhs = rhs.evaluate(context.clone())?;
+                context.borrow_mut().variables.insert(name.to_owned(), rhs);
                 Ok(Value::Unit)
             }
             Expression::Scope(expressions) => {
-                let mut context = Context::with_parent(&context);
+                let context = Rc::new(RefCell::new(Context::with_parent(context.clone())));
 
                 expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
-                    acc.and(expression.evaluate(&mut context))
+                    acc.and(expression.evaluate(context.clone()))
                 })
             }
             Expression::Function(function) => {
-                context.functions.insert(&function.name, function.clone());
+                context.borrow_mut().functions.insert(function.name.to_owned(), function.clone());
                 Ok(Value::Unit)
             }
             Expression::FunctionCall(name, arguments) => {
                 let mut values = vec![];
                 for arg in arguments {
-                    values.push(arg.evaluate(context)?);
+                    values.push(arg.evaluate(context.clone())?);
                 }
                 let (fn_context, function) = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
                 function.call(fn_context, values)
@@ -71,7 +82,7 @@ impl Expression {
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
                 for op in operands {
-                    values.push(op.evaluate(context)?);
+                    values.push(op.evaluate(context.clone())?);
                 }
 
                 use Value::*;
@@ -188,23 +199,23 @@ impl Expression {
     }
 }
 
-impl<'a> Function {
-    pub fn call(&self, context: &Context, args: Vec<Value>) -> Result<Value, InterpreterError> {
+impl Function {
+    pub fn call(&self, context: Rc<RefCell<Context>>, args: Vec<Value>) -> Result<Value, InterpreterError> {
         if self.parameters.len() != args.len() {
             return Err(InterpreterError::WrongNumberOfArguments);
         }
 
-        let mut context = Context {
+        let context = Rc::new(RefCell::new(Context {
             parent_context: Some(context),
             functions: HashMap::new(),
             variables: {
                 let mut hashmap = HashMap::new();
                 for (param, arg) in self.parameters.iter().zip(args) {
-                    hashmap.insert(param as &str, arg);
+                    hashmap.insert(param.to_owned(), arg);
                 }
                 hashmap
             },
-        };
-        self.body.evaluate(&mut context)
+        }));
+        self.body.evaluate(context)
     }
 }

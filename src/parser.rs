@@ -5,16 +5,17 @@ use ParserError::*;
 
 use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
+use std::cell::RefCell;
 
 #[derive(Default, Debug)]
-pub struct Context<'a> {
-    pub parent_context: Option<&'a Context<'a>>,
-    pub functions: HashMap<&'a str, Rc<Function>>,
-    pub variables: HashMap<&'a str, Value>,
+pub struct Context {
+    pub parent_context: Option<Rc<RefCell<Context>>>,
+    pub functions: HashMap<String, Rc<Function>>,
+    pub variables: HashMap<String, Value>,
 }
 
-impl<'a> Context<'a> {
-    pub fn with_parent(parent_context: &'a Context<'a>) -> Self {
+impl Context {
+    pub fn with_parent(parent_context: Rc<RefCell<Context>>) -> Self {
         Self {
             parent_context: Some(parent_context),
             ..Default::default()

@@ -5,6 +5,8 @@ use std::io::Read;
 
 use crate::lexer::Lexer;
 use crate::parser::{Parser, Context, Value};
+use std::rc::Rc;
+use std::cell::RefCell;
 
 mod lexer;
 mod parser;
@@ -26,9 +28,9 @@ fn main() {
             let expressions = Parser::new(&tokens).parse();
             match expressions {
                 Ok(expressions) => {
-                    let mut global_context = Context::default();
+                    let global_context = Rc::new(RefCell::new(Context::default()));
                     let result = expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
-                        acc.and(expression.evaluate(&mut global_context))
+                        acc.and(expression.evaluate(global_context.clone()))
                     });
 
                     match result {
