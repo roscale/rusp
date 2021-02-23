@@ -105,6 +105,14 @@ impl<'a> Parser<'a> {
                     Literal::String(s) => Expression::Value(Value::String(s.to_owned())),
                 }
             }
+            [Token::Keyword(Keyword::True), ..] => {
+                self.view = &self.view[1..];
+                Expression::Value(Value::Boolean(true))
+            },
+            [Token::Keyword(Keyword::False), ..] => {
+                self.view = &self.view[1..];
+                Expression::Value(Value::Boolean(false))
+            },
             [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,

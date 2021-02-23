@@ -15,11 +15,9 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Implement variable assignment">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Implement anonymous functions">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/interpreter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/interpreter.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -272,7 +270,14 @@
       <option name="project" value="LOCAL" />
       <updated>1614112531955</updated>
     </task>
-    <option name="localTasksCounter" value="20" />
+    <task id="LOCAL-00020" summary="Implement anonymous functions">
+      <created>1614115659170</created>
+      <option name="number" value="00020" />
+      <option name="presentableId" value="LOCAL-00020" />
+      <option name="project" value="LOCAL" />
+      <updated>1614115659170</updated>
+    </task>
+    <option name="localTasksCounter" value="21" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -311,7 +316,8 @@
     <MESSAGE value="Make contexts reference counted&#10;&#10;This will allow for returning closures while keeping the captured &#10;context alive. For this reason, the lifetime of a context is no longer &#10;trivial and cannot be determined at compile-time." />
     <MESSAGE value="Enable calling a function directly from the result of an expression" />
     <MESSAGE value="Implement variable assignment" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement variable assignment" />
+    <MESSAGE value="Implement anonymous functions" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement anonymous functions" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
