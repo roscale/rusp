@@ -1,11 +1,5 @@
-fn demo (a) fn (x) (+ x a)
+fn is_greater_than (x) fn (y) (> y x)
 
-let arg = 1
+let is_greater_than_4 = (is_greater_than 4)
 
-let a = 1
-let add = fn (x y) (+ x y a)
-fn subtract (x y) (- x y)
-
-(add 4 5)
-let b = (+ (subtract 4 5) " true")
-((demo arg) 4)
+(is_greater_than_4 5)

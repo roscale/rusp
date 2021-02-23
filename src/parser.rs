@@ -40,6 +40,15 @@ pub enum Expression {
         body: Box<Expression>,
     },
     FunctionCall(Box<Expression>, Vec<Expression>),
+    If {
+        guard: Box<Expression>,
+        base_case: Box<Expression>,
+    },
+    IfElse {
+        guard: Box<Expression>,
+        base_case: Box<Expression>,
+        else_case: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -108,16 +117,17 @@ impl<'a> Parser<'a> {
             [Token::Keyword(Keyword::True), ..] => {
                 self.view = &self.view[1..];
                 Expression::Value(Value::Boolean(true))
-            },
+            }
             [Token::Keyword(Keyword::False), ..] => {
                 self.view = &self.view[1..];
                 Expression::Value(Value::Boolean(false))
-            },
+            }
             [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
             [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
+            [Token::Keyword(Keyword::If), ..] => self.parse_condition()?,
             [t, ..] => return Err(UnexpectedToken(t.to_owned())),
             [] => return Err(UnexpectedEOF),
         };
@@ -287,5 +297,43 @@ impl<'a> Parser<'a> {
             }
         }
         Ok(Scope(expressions))
+    }
+
+    fn parse_condition(&mut self) -> Result<Expression, ParserError> {
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Keyword(Keyword::If) => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let guard = self.parse_expression()?;
+
+        let base_case = self.parse_expression()?;
+
+        let else_guard_exists = match self.view.first() {
+            Some(Token::Keyword(Keyword::Else)) => {
+                self.view = &self.view[1..];
+                true
+            }
+            _ => false,
+        };
+
+        match else_guard_exists {
+            false => {
+                Ok(Expression::If {
+                    guard: Box::new(guard),
+                    base_case: Box::new(base_case),
+                })
+            }
+            true => {
+                let else_case = self.parse_expression()?;
+
+                Ok(Expression::IfElse {
+                    guard: Box::new(guard),
+                    base_case: Box::new(base_case),
+                    else_case: Box::new(else_case),
+                })
+            }
+        }
     }
 }

@@ -103,6 +103,30 @@ impl Expression {
                     v => Err(FunctionNotFound(v.to_string()))
                 }
             }
+            Expression::If { guard, base_case } => {
+                let context = Rc::new(RefCell::new(Context::with_parent(context)));
+
+                let is_guard_true = match guard.evaluate(context.clone())? {
+                    Value::Boolean(b) => b,
+                    _ => false, // We don't do implicit casting to boolean
+                };
+                if is_guard_true {
+                    base_case.evaluate(context)?;
+                }
+                Ok(Value::Unit)
+            }
+            Expression::IfElse { guard, base_case, else_case } => {
+                let context = Rc::new(RefCell::new(Context::with_parent(context)));
+
+                let is_guard_true = match guard.evaluate(context.clone())? {
+                    Value::Boolean(b) => b,
+                    _ => false, // We don't do implicit casting to boolean
+                };
+                match is_guard_true {
+                    true => base_case.evaluate(context),
+                    false => else_case.evaluate(context),
+                }
+            }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
                 for op in operands {

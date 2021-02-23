@@ -1,5 +1,11 @@
-// Architecture similar to this image
-// https://miro.medium.com/max/875/1%2aluy_LfooQ8dLjhOiaZ1mrg.png
+/// Architecture similar to this image
+/// https://miro.medium.com/max/875/1%2aluy_LfooQ8dLjhOiaZ1mrg.png
+///
+/// Initially, Lexer::view is the array of chars of the source code.
+/// I opted to use a char array instead of using iterators because I can fully exploit pattern
+/// matching to look ahead, instead of manually calling .peak() on an iterator.
+/// As the lexer reads the characters, it re-slices the view. The next character to be read will
+/// always be at index 0.
 
 #[derive(Debug, Clone)]
 pub enum Token {
@@ -29,6 +35,7 @@ pub enum Literal {
 #[derive(Debug, Clone)]
 pub enum Keyword {
     If,
+    Else,
     While,
     For,
     True,
@@ -106,6 +113,7 @@ impl<'a> Lexer<'a> {
                     let token = start[..i].iter().collect::<String>();
                     let token = match token.as_str() {
                         "if" => Token::Keyword(If),
+                        "else" => Token::Keyword(Else),
                         "while" => Token::Keyword(While),
                         "for" => Token::Keyword(For),
                         "true" => Token::Keyword(True),
