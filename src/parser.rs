@@ -30,8 +30,12 @@ pub enum Expression {
     Assignment(String, Box<Expression>),
     Operation(Operator, Vec<Expression>),
     Scope(Vec<Expression>),
-    FunctionDefinition {
+    NamedFunctionDefinition {
         name: String,
+        parameters: Vec<String>,
+        body: Box<Expression>,
+    },
+    AnonymousFunctionDefinition {
         parameters: Vec<String>,
         body: Box<Expression>,
     },
@@ -115,11 +119,14 @@ impl<'a> Parser<'a> {
     pub fn parse_function(&mut self) -> Result<Expression, ParserError> {
         self.view = &self.view[1..]; // skip "fn"
 
+        // If there's no name, then it's an anonymous function
         let name = match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Id(id) => id,
-            t => return Err(UnexpectedToken(t.to_owned()))
+            Token::Id(id) => {
+                self.view = &self.view[1..];
+                Some(id)
+            }
+            _ => None
         };
-        self.view = &self.view[1..];
 
         match self.view.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
@@ -141,13 +148,20 @@ impl<'a> Parser<'a> {
                 t => return Err(UnexpectedToken(t.to_owned())),
             }
         }
+        let parameters = parameters.into_iter().map(|s| s.to_owned()).collect();
 
-        let body = self.parse_expression()?;
+        let body = Box::new(self.parse_expression()?);
 
-        Ok(Expression::FunctionDefinition {
-            name: name.to_owned(),
-            parameters: parameters.into_iter().map(|s| s.to_owned()).collect(),
-            body: Box::new(body),
+        Ok(match name {
+            Some(name) => Expression::NamedFunctionDefinition {
+                name: name.to_owned(),
+                parameters,
+                body,
+            },
+            None => Expression::AnonymousFunctionDefinition {
+                parameters,
+                body,
+            },
         })
     }
 

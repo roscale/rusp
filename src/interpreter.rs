@@ -76,7 +76,7 @@ impl Expression {
                     acc.and(expression.evaluate(context.clone()))
                 })
             }
-            Expression::FunctionDefinition { name, parameters, body } => {
+            Expression::NamedFunctionDefinition { name, parameters, body } => {
                 context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function {
                     closing_context: context.clone(),
                     name: name.to_owned(),
@@ -84,6 +84,14 @@ impl Expression {
                     body: body.clone(),
                 }));
                 Ok(Value::Unit)
+            }
+            Expression::AnonymousFunctionDefinition { parameters, body } => {
+                Ok(Value::Function(Function {
+                    closing_context: context.clone(),
+                    name: "anonymous".to_owned(),
+                    parameters: parameters.to_owned(),
+                    body: body.clone(),
+                }))
             }
             Expression::FunctionCall(function_ptr, arguments) => {
                 let mut values = vec![];
