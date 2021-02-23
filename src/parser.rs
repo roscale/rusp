@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
 
@@ -5,7 +6,6 @@ use ParserError::*;
 
 use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
-use std::cell::RefCell;
 
 #[derive(Default, Debug)]
 pub struct Context {
@@ -23,14 +23,18 @@ impl Context {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub enum Expression {
     Id(String),
     Value(Value),
     Declaration(String, Box<Expression>),
     Operation(Operator, Vec<Expression>),
     Scope(Vec<Expression>),
-    Function(Rc<Function>),
+    FunctionDefinition {
+        name: String,
+        parameters: Vec<String>,
+        body: Box<Expression>,
+    },
     FunctionCall(String, Vec<Expression>),
 }
 
@@ -51,9 +55,10 @@ pub enum ParserError {
 
 #[derive(Debug)]
 pub struct Function {
+    pub(crate) closing_context: Rc<RefCell<Context>>,
     pub(crate) name: String,
     pub(crate) parameters: Vec<String>,
-    pub(crate) body: Expression,
+    pub(crate) body: Box<Expression>,
 }
 
 pub struct Parser<'a> {
@@ -137,11 +142,11 @@ impl<'a> Parser<'a> {
 
         let body = self.parse_expression()?;
 
-        Ok(Expression::Function(Rc::new(Function {
+        Ok(Expression::FunctionDefinition {
             name: name.to_owned(),
             parameters: parameters.into_iter().map(|s| s.to_owned()).collect(),
-            body,
-        })))
+            body: Box::new(body),
+        })
     }
 
     fn parse_declaration(&mut self) -> Result<Expression, ParserError> {

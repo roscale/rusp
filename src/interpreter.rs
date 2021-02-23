@@ -1,11 +1,11 @@
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::rc::Rc;
 
-use crate::interpreter::InterpreterError::{FunctionNotFound, InvalidOperands, VariableNotFound, WrongNumberOfArguments};
+use crate::interpreter::InterpreterError::*;
 use crate::lexer::Operator;
 use crate::parser::{Context, Expression, Function, Value};
-use std::rc::Rc;
-use std::cell::RefCell;
 
 #[derive(Debug)]
 pub enum InterpreterError {
@@ -17,7 +17,7 @@ pub enum InterpreterError {
 
 pub trait ContextTrait {
     fn get_variable(&self, name: &str) -> Option<Value>;
-    fn get_function(&self, name: &str) -> Option<(Self, Rc<Function>)> where Self: Sized;
+    fn get_function(&self, name: &str) -> Option<Rc<Function>>;
 }
 
 impl ContextTrait for Rc<RefCell<Context>> {
@@ -29,10 +29,10 @@ impl ContextTrait for Rc<RefCell<Context>> {
         }
     }
 
-    fn get_function(&self, name: &str) -> Option<(Self, Rc<Function>)> {
+    fn get_function(&self, name: &str) -> Option<Rc<Function>> {
         let b = RefCell::borrow(self);
         match b.functions.get(name).cloned() {
-            Some(function) => Some((self.clone(), function)),
+            Some(function) => Some(function),
             None => b.parent_context.as_ref().and_then(|c| c.get_function(name))
         }
     }
@@ -67,8 +67,13 @@ impl Expression {
                     acc.and(expression.evaluate(context.clone()))
                 })
             }
-            Expression::Function(function) => {
-                context.borrow_mut().functions.insert(function.name.to_owned(), function.clone());
+            Expression::FunctionDefinition { name, parameters, body } => {
+                context.borrow_mut().functions.insert(name.to_owned(), Rc::new(Function {
+                    closing_context: context.clone(),
+                    name: name.to_owned(),
+                    parameters: parameters.to_owned(),
+                    body: body.clone(),
+                }));
                 Ok(Value::Unit)
             }
             Expression::FunctionCall(name, arguments) => {
@@ -76,8 +81,8 @@ impl Expression {
                 for arg in arguments {
                     values.push(arg.evaluate(context.clone())?);
                 }
-                let (fn_context, function) = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
-                function.call(fn_context, values)
+                let function = context.get_function(name as &str).ok_or(FunctionNotFound(name.to_owned()))?;
+                function.call(values)
             }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
@@ -200,13 +205,13 @@ impl Expression {
 }
 
 impl Function {
-    pub fn call(&self, context: Rc<RefCell<Context>>, args: Vec<Value>) -> Result<Value, InterpreterError> {
+    pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterError> {
         if self.parameters.len() != args.len() {
             return Err(InterpreterError::WrongNumberOfArguments);
         }
 
         let context = Rc::new(RefCell::new(Context {
-            parent_context: Some(context),
+            parent_context: Some(self.closing_context.clone()),
             functions: HashMap::new(),
             variables: {
                 let mut hashmap = HashMap::new();

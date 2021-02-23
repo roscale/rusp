@@ -5,4 +5,5 @@ fn demo (a) {
 
 fn add (first second) (** first second)
 
-(demo 2)
+let arg = 2
+(demo arg)
