@@ -127,6 +127,19 @@ impl Expression {
                     false => else_case.evaluate(context),
                 }
             }
+            Expression::While { guard, body } => {
+                let context = Rc::new(RefCell::new(Context::with_parent(context)));
+
+                while {
+                    match guard.evaluate(context.clone())? {
+                        Value::Boolean(b) => b,
+                        _ => false, // We don't do implicit casting to boolean
+                    }
+                } {
+                    body.evaluate(context.clone())?;
+                }
+                Ok(Value::Unit)
+            }
             Expression::Operation(op, operands) => {
                 let mut values = vec![];
                 for op in operands {

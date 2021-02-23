@@ -15,10 +15,11 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Allow boolean literals">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Implement if condition">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/interpreter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/interpreter.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/lexer.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/lexer.rs" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
     </list>
@@ -287,7 +288,14 @@
       <option name="project" value="LOCAL" />
       <updated>1614116235590</updated>
     </task>
-    <option name="localTasksCounter" value="22" />
+    <task id="LOCAL-00022" summary="Implement if condition">
+      <created>1614121722673</created>
+      <option name="number" value="00022" />
+      <option name="presentableId" value="LOCAL-00022" />
+      <option name="project" value="LOCAL" />
+      <updated>1614121722673</updated>
+    </task>
+    <option name="localTasksCounter" value="23" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -328,7 +336,8 @@
     <MESSAGE value="Implement variable assignment" />
     <MESSAGE value="Implement anonymous functions" />
     <MESSAGE value="Allow boolean literals" />
-    <option name="LAST_COMMIT_MESSAGE" value="Allow boolean literals" />
+    <MESSAGE value="Implement if condition" />
+    <option name="LAST_COMMIT_MESSAGE" value="Implement if condition" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />

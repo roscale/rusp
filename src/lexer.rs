@@ -6,7 +6,6 @@
 /// matching to look ahead, instead of manually calling .peak() on an iterator.
 /// As the lexer reads the characters, it re-slices the view. The next character to be read will
 /// always be at index 0.
-
 #[derive(Debug, Clone)]
 pub enum Token {
     Id(String),
@@ -88,7 +87,7 @@ impl<'a> Lexer<'a> {
 
             match self.view {
                 [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
-                ['/', '/', ..] => self.process_comments()?,
+                [';', ..] => self.process_comments()?,
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
                 ['+' | '-', digit, ..] if digit.is_ascii_digit() && is_the_last_token_an_operator => self.process_numeric_literals()?,

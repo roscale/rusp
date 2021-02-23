@@ -1,13 +1,13 @@
 #![feature(or_patterns)]
 #![feature(box_patterns)]
 
+use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
+use std::rc::Rc;
 
 use crate::lexer::Lexer;
-use crate::parser::{Parser, Context, Value};
-use std::rc::Rc;
-use std::cell::RefCell;
+use crate::parser::{Context, Parser, Value};
 
 mod lexer;
 mod parser;
@@ -38,12 +38,12 @@ fn main() {
                         Ok(result) => println!("{}", result),
                         Err(e) => {
                             dbg!(e);
-                        },
+                        }
                     }
                 }
                 Err(err) => {
                     dbg!(&err);
-                },
+                }
             };
         }
         Err(e) => {

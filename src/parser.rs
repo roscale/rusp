@@ -49,6 +49,10 @@ pub enum Expression {
         base_case: Box<Expression>,
         else_case: Box<Expression>,
     },
+    While {
+        guard: Box<Expression>,
+        body: Box<Expression>,
+    },
 }
 
 #[derive(Debug, Clone)]
@@ -128,6 +132,7 @@ impl<'a> Parser<'a> {
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
             [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
             [Token::Keyword(Keyword::If), ..] => self.parse_condition()?,
+            [Token::Keyword(Keyword::While), ..] => self.parse_while_loop()?,
             [t, ..] => return Err(UnexpectedToken(t.to_owned())),
             [] => return Err(UnexpectedEOF),
         };
@@ -307,7 +312,6 @@ impl<'a> Parser<'a> {
         self.view = &self.view[1..];
 
         let guard = self.parse_expression()?;
-
         let base_case = self.parse_expression()?;
 
         let else_guard_exists = match self.view.first() {
@@ -335,5 +339,21 @@ impl<'a> Parser<'a> {
                 })
             }
         }
+    }
+
+    fn parse_while_loop(&mut self) -> Result<Expression, ParserError> {
+        match self.view.first().ok_or(UnexpectedEOF)? {
+            Token::Keyword(Keyword::While) => (),
+            t => return Err(UnexpectedToken(t.to_owned())),
+        }
+        self.view = &self.view[1..];
+
+        let guard = self.parse_expression()?;
+        let body = self.parse_expression()?;
+
+        Ok(Expression::While {
+            guard: Box::new(guard),
+            body: Box::new(body),
+        })
     }
 }
