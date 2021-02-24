@@ -4,6 +4,7 @@ use std::rc::Rc;
 
 use ParserError::*;
 
+use crate::interpreter::InterpreterError;
 use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
 
@@ -72,11 +73,19 @@ pub enum ParserError {
 }
 
 #[derive(Debug, Clone)]
-pub struct Function {
-    pub(crate) closing_context: Rc<RefCell<Context>>,
-    pub(crate) name: String,
-    pub(crate) parameters: Vec<String>,
-    pub(crate) body: Box<Expression>,
+pub enum Function {
+    BuiltInFunction {
+        closing_context: Rc<RefCell<Context>>,
+        name: String,
+        parameters: Vec<String>,
+        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterError>,
+    },
+    LanguageFunction {
+        closing_context: Rc<RefCell<Context>>,
+        name: String,
+        parameters: Vec<String>,
+        body: Box<Expression>,
+    },
 }
 
 pub struct Parser<'a> {

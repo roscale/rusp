@@ -1,3 +1,10 @@
+fn recursive_loop (n f) {
+    if (> n 0) {
+        (f)
+        (recursive_loop (- n 1) f)
+    }
+}
+
 fn sum (from to) {
     let sum = 0
     let i = from
@@ -14,8 +21,48 @@ let min = fn (x y) if (< x y) x else y
 let is_greater_than = fn (x) fn (y) (> y x)
 let is_greater_than_4 = (is_greater_than 4)
 
-((is_greater_than 10) 11)
-(is_greater_than_4 3)
+(print (sum 1 10))
 
-; (= (sum 1 4) 10)
+(print ((is_greater_than 10) 11))
+(print (is_greater_than_4 3))
+
+let arg = "yes"
+
+(recursive_loop 3 fn () {
+    (print arg)
+    arg = (+ arg "s")
+})
+
 ; (max 3 2)
+
+; Possible future list implementation
+;(@ [1 [1 2 3] 3] 1) == [1 2 3]
+;(+ 1 [2 3]) == [1 2 3]
+;(+ [1 2] 3) == [1 2 3]
+;(+@ [1 3] 1 2) == [1 2 3]
+;(- [1 2 3 4] 4) == [1 2 3]
+;(-@ [1 2 3 4] 3) == [1 2 3]
+
+;fn range (from to) {
+;    list = []
+;    let i = from
+;    while (< i to) {
+;        list = (+ list i)
+;        i = (+ i 1)
+;    }
+;    sum
+;}
+
+;fn map (list f) {
+;    let results = []
+;    for elem in list {
+;        (+ results (f elem))
+;    }
+;    results
+;}
+
+;fn sum (from to) {
+;    let sum = 0
+;    for i in (range from to) sum = (+ sum i)
+;    sum
+;}

@@ -49,7 +49,8 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{}", float),
             Value::String(string) => write!(f, "{}", string),
             Value::Boolean(b) => write!(f, "{}", if *b { "true" } else { "false" }),
-            Value::Function(fun) => write!(f, "fn {}", fun.name),
+            Value::Function(Function::BuiltInFunction { name, .. }) => write!(f, "fn {}", name),
+            Value::Function(Function::LanguageFunction { name, .. }) => write!(f, "fn {}", name),
         }
     }
 }
@@ -77,7 +78,7 @@ impl Expression {
                 })
             }
             Expression::NamedFunctionDefinition { name, parameters, body } => {
-                context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function {
+                context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function::LanguageFunction {
                     closing_context: context.clone(),
                     name: name.to_owned(),
                     parameters: parameters.to_owned(),
@@ -86,7 +87,7 @@ impl Expression {
                 Ok(Value::Unit)
             }
             Expression::AnonymousFunctionDefinition { parameters, body } => {
-                Ok(Value::Function(Function {
+                Ok(Value::Function(Function::LanguageFunction {
                     closing_context: context.clone(),
                     name: "anonymous".to_owned(),
                     parameters: parameters.to_owned(),
@@ -262,20 +263,30 @@ impl Expression {
 
 impl Function {
     pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterError> {
-        if self.parameters.len() != args.len() {
-            return Err(InterpreterError::WrongNumberOfArguments);
-        }
-
-        let context = Rc::new(RefCell::new(Context {
-            parent_context: Some(self.closing_context.clone()),
-            variables: {
-                let mut hashmap = HashMap::new();
-                for (param, arg) in self.parameters.iter().zip(args) {
-                    hashmap.insert(param.to_owned(), arg);
+        match self {
+            Function::BuiltInFunction { closing_context, name: _, parameters, fn_pointer } => {
+                if parameters.len() != args.len() {
+                    return Err(InterpreterError::WrongNumberOfArguments);
                 }
-                hashmap
-            },
-        }));
-        self.body.evaluate(context)
+                fn_pointer(closing_context.clone(), args)
+            }
+            Function::LanguageFunction { closing_context, name: _, parameters, body } => {
+                if parameters.len() != args.len() {
+                    return Err(InterpreterError::WrongNumberOfArguments);
+                }
+
+                let context = Rc::new(RefCell::new(Context {
+                    parent_context: Some(closing_context.clone()),
+                    variables: {
+                        let mut hashmap = HashMap::new();
+                        for (param, arg) in parameters.iter().zip(args) {
+                            hashmap.insert(param.to_owned(), arg);
+                        }
+                        hashmap
+                    },
+                }));
+                body.evaluate(context)
+            }
+        }
     }
 }
