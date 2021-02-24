@@ -1,5 +1,5 @@
 [package]
-name = "lang"
+name = "rusp"
 version = "0.1.0"
 authors = ["Rosca Alex <roscaalex19@gmail.com>"]
 edition = "2018"

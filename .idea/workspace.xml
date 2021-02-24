@@ -15,12 +15,10 @@
     <cargoProject FILE="$PROJECT_DIR$/Cargo.toml" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Implement while loop">
+    <list default="true" id="a201c5cf-4f13-4295-9571-32fe880b3252" name="Default Changelist" comment="Allow for built-in functions written in rust">
       <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/interpreter.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/interpreter.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/main.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/main.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/src/parser.rs" beforeDir="false" afterPath="$PROJECT_DIR$/src/parser.rs" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/test.rkt" beforeDir="false" afterPath="$PROJECT_DIR$/test.rkt" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.lock" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.lock" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/Cargo.toml" beforeDir="false" afterPath="$PROJECT_DIR$/Cargo.toml" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
@@ -52,6 +50,7 @@
     <option name="directoryName" value="iw8o3ial" />
   </component>
   <component name="ProjectId" id="1mQf7ur1zWyu0dES5d8LDNzLyFm" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true" />
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -65,12 +64,12 @@
     <property name="nodejs_npm_path_reset_for_default_project" value="true" />
     <property name="nodejs_package_manager_path" value="npm" />
     <property name="org.rust.cargo.project.model.PROJECT_DISCOVERY" value="true" />
-    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.CommitDialog" />
+    <property name="settings.editor.selected.configurable" value="project.propVCSSupport.Mappings" />
     <property name="settings.editor.splitter.proportion" value="0.22567783" />
   </component>
   <component name="RunManager" selected="Cargo.Run">
     <configuration name="Run release" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package lang --bin lang --release" />
+      <option name="command" value="run --package rusp --bin rusp --release" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <option name="channel" value="DEFAULT" />
       <option name="allFeatures" value="false" />
@@ -84,7 +83,7 @@
       </method>
     </configuration>
     <configuration name="Run" type="CargoCommandRunConfiguration" factoryName="Cargo Command">
-      <option name="command" value="run --package lang --bin lang" />
+      <option name="command" value="run --package rusp --bin rusp" />
       <option name="workingDirectory" value="file://$PROJECT_DIR$" />
       <option name="channel" value="DEFAULT" />
       <option name="allFeatures" value="false" />
@@ -139,7 +138,7 @@
       <workItem from="1613912347110" duration="2541000" />
       <workItem from="1613914957671" duration="19864000" />
       <workItem from="1614023322332" duration="8227000" />
-      <workItem from="1614201358568" duration="5623000" />
+      <workItem from="1614201358568" duration="6074000" />
     </task>
     <task id="LOCAL-00001" summary="First commit">
       <created>1611352275871</created>
@@ -302,7 +301,14 @@
       <option name="project" value="LOCAL" />
       <updated>1614124118663</updated>
     </task>
-    <option name="localTasksCounter" value="24" />
+    <task id="LOCAL-00024" summary="Allow for built-in functions written in rust">
+      <created>1614208669388</created>
+      <option name="number" value="00024" />
+      <option name="presentableId" value="LOCAL-00024" />
+      <option name="project" value="LOCAL" />
+      <updated>1614208669388</updated>
+    </task>
+    <option name="localTasksCounter" value="25" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -322,6 +328,9 @@
   </component>
   <component name="VcsManagerConfiguration">
     <option name="WRAP_WHEN_TYPING_REACHES_RIGHT_MARGIN" value="true" />
+    <ignored-roots>
+      <path value="$PROJECT_DIR$" />
+    </ignored-roots>
     <MESSAGE value="First commit" />
     <MESSAGE value="Clean up the code" />
     <MESSAGE value="Tokenize signed numbers" />
@@ -345,7 +354,8 @@
     <MESSAGE value="Allow boolean literals" />
     <MESSAGE value="Implement if condition" />
     <MESSAGE value="Implement while loop" />
-    <option name="LAST_COMMIT_MESSAGE" value="Implement while loop" />
+    <MESSAGE value="Allow for built-in functions written in rust" />
+    <option name="LAST_COMMIT_MESSAGE" value="Allow for built-in functions written in rust" />
   </component>
   <component name="XSLT-Support.FileAssociations.UIState">
     <expand />
