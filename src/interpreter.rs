@@ -4,7 +4,6 @@ use std::fmt::{Display, Formatter};
 use std::rc::Rc;
 
 use crate::interpreter::InterpreterError::*;
-use crate::lexer::Operator;
 use crate::parser::{Context, Expression, Function, Value};
 
 #[derive(Debug)]
@@ -141,122 +140,6 @@ impl Expression {
                 }
                 Ok(Value::Unit)
             }
-            Expression::Operation(op, operands) => {
-                let mut values = vec![];
-                for op in operands {
-                    values.push(op.evaluate(context.clone())?);
-                }
-
-                use Value::*;
-                match op {
-                    Operator::Plus => values.into_iter().fold(Ok(Value::Integer(0)), |acc, x| {
-                        acc.and_then(|acc| {
-                            match (acc, x) {
-                                (String(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
-                                (String(lhs), Integer(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
-                                (String(lhs), Float(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
-                                (Integer(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
-                                (Integer(lhs), Integer(rhs)) => Ok(Integer(lhs + rhs)),
-                                (Integer(lhs), Float(rhs)) => Ok(Float(lhs as f32 + rhs)),
-                                (Float(lhs), String(rhs)) => Ok(String(format!("{}{}", lhs, rhs))),
-                                (Float(lhs), Integer(rhs)) => Ok(Float(lhs + rhs as f32)),
-                                (Float(lhs), Float(rhs)) => Ok(Float(lhs + rhs)),
-                                _ => Err(InvalidOperands),
-                            }
-                        })
-                    }),
-                    Operator::Equal => {
-                        let result = values.windows(2).all(|slice| {
-                            match (&slice[0], &slice[1]) {
-                                (Boolean(x), Boolean(y)) => x == y,
-                                (Integer(x), Integer(y)) => x == y,
-                                (Float(x), Float(y)) => x == y,
-                                (String(x), String(y)) => x == y,
-                                _ => false,
-                            }
-                        });
-                        Ok(Boolean(result))
-                    }
-                    Operator::GreaterThan => {
-                        let result = values.windows(2).all(|slice| {
-                            match (&slice[0], &slice[1]) {
-                                (Integer(x), Integer(y)) => x > y,
-                                (Float(x), Float(y)) => x > y,
-                                (String(x), String(y)) => x > y,
-                                _ => false,
-                            }
-                        });
-                        Ok(Boolean(result))
-                    }
-                    Operator::LessThan => {
-                        let result = values.windows(2).all(|slice| {
-                            match (&slice[0], &slice[1]) {
-                                (Integer(x), Integer(y)) => x < y,
-                                (Float(x), Float(y)) => x < y,
-                                (String(x), String(y)) => x < y,
-                                _ => false,
-                            }
-                        });
-                        Ok(Boolean(result))
-                    }
-                    Operator::GreaterThanOrEqual => {
-                        let result = values.windows(2).all(|slice| {
-                            match (&slice[0], &slice[1]) {
-                                (Integer(x), Integer(y)) => x >= y,
-                                (Float(x), Float(y)) => x >= y,
-                                (String(x), String(y)) => x >= y,
-                                _ => false,
-                            }
-                        });
-                        Ok(Boolean(result))
-                    }
-                    Operator::LessThanOrEqual => {
-                        let result = values.windows(2).all(|slice| {
-                            match (&slice[0], &slice[1]) {
-                                (Integer(x), Integer(y)) => x <= y,
-                                (Float(x), Float(y)) => x <= y,
-                                (String(x), String(y)) => x <= y,
-                                _ => false,
-                            }
-                        });
-                        Ok(Boolean(result))
-                    }
-                    _ => {
-                        let mut iter = values.into_iter();
-                        let first = iter.next().ok_or(WrongNumberOfArguments)?;
-                        iter.fold(Ok(first), |acc, x| {
-                            acc.and_then(|acc| {
-                                fn compute_float_operation(lhs: f32, op: &Operator, rhs: f32) -> Result<Value, InterpreterError> {
-                                    match op {
-                                        Operator::Plus => Ok(Float(lhs + rhs)),
-                                        Operator::Minus => Ok(Float(lhs - rhs)),
-                                        Operator::Asterisk => Ok(Float(lhs * rhs)),
-                                        Operator::Slash => Ok(Float(lhs / rhs)),
-                                        Operator::Pow => Ok(Float(lhs.powf(rhs))),
-                                        _ => Err(InvalidOperands),
-                                    }
-                                }
-
-                                match (acc, x) {
-                                    (Integer(lhs), Integer(rhs)) => {
-                                        match op {
-                                            Operator::Minus => Ok(Integer(lhs - rhs)),
-                                            Operator::Asterisk => Ok(Integer(lhs * rhs)),
-                                            Operator::Slash => Ok(Integer(lhs / rhs)),
-                                            Operator::Pow => Ok(Float((lhs as f32).powi(rhs))),
-                                            _ => Err(InvalidOperands),
-                                        }
-                                    }
-                                    (Integer(lhs), Float(rhs)) => compute_float_operation(lhs as f32, op, rhs),
-                                    (Float(lhs), Integer(rhs)) => compute_float_operation(lhs, op, rhs as f32),
-                                    (Float(lhs), Float(rhs)) => compute_float_operation(lhs, op, rhs),
-                                    _ => Err(InvalidOperands)
-                                }
-                            })
-                        })
-                    }
-                }
-            }
         }
     }
 }
@@ -264,10 +147,7 @@ impl Expression {
 impl Function {
     pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterError> {
         match self {
-            Function::BuiltInFunction { closing_context, name: _, parameters, fn_pointer } => {
-                if parameters.len() != args.len() {
-                    return Err(InterpreterError::WrongNumberOfArguments);
-                }
+            Function::BuiltInFunction { closing_context, name: _, fn_pointer } => {
                 fn_pointer(closing_context.clone(), args)
             }
             Function::LanguageFunction { closing_context, name: _, parameters, body } => {
@@ -275,6 +155,7 @@ impl Function {
                     return Err(InterpreterError::WrongNumberOfArguments);
                 }
 
+                // Put the arguments in the context
                 let context = Rc::new(RefCell::new(Context {
                     parent_context: Some(closing_context.clone()),
                     variables: {

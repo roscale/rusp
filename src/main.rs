@@ -2,18 +2,18 @@
 #![feature(box_patterns)]
 #![feature(try_blocks)]
 
-use std::cell::RefCell;
 use std::fs::File;
 use std::io::Read;
-use std::rc::Rc;
 
 use crate::interpreter::InterpreterError;
 use crate::lexer::{Lexer, LexerError};
-use crate::parser::{Context, Function, Parser, ParserError, Value};
+use crate::parser::{Parser, ParserError};
+use crate::built_in_functions::create_global_context_with_built_in_functions;
 
 mod lexer;
 mod parser;
 mod interpreter;
+mod built_in_functions;
 
 fn main() -> Result<(), AllErrors> {
     let source = {
@@ -29,49 +29,13 @@ fn main() -> Result<(), AllErrors> {
     };
 
     let expressions = Parser::new(&tokens).parse()?;
-    let global_context = create_global_context();
+    let global_context = create_global_context_with_built_in_functions();
 
     for expression in &expressions {
         expression.evaluate(global_context.clone())?;
     }
 
     Ok(())
-}
-
-fn create_global_context() -> Rc<RefCell<Context>> {
-    let global_context = Rc::new(RefCell::new(Context::default()));
-
-    global_context.borrow_mut().variables.insert(String::from("print"), Value::Function(Function::BuiltInFunction {
-        closing_context: global_context.clone(),
-        name: "print".to_string(),
-        parameters: vec!["value".to_string()],
-        fn_pointer: |_context, arguments| {
-            print!("{}", arguments[0]);
-            Ok(Value::Unit)
-        },
-    }));
-
-    global_context.borrow_mut().variables.insert(String::from("println"), Value::Function(Function::BuiltInFunction {
-        closing_context: global_context.clone(),
-        name: "println".to_string(),
-        parameters: vec!["value".to_string()],
-        fn_pointer: |_context, arguments| {
-            println!("{}", arguments[0]);
-            Ok(Value::Unit)
-        },
-    }));
-
-    global_context.borrow_mut().variables.insert(String::from("dbg"), Value::Function(Function::BuiltInFunction {
-        closing_context: global_context.clone(),
-        name: "dbg".to_string(),
-        parameters: vec!["value".to_string()],
-        fn_pointer: |_context, arguments| {
-            println!("{:#?}", &arguments[0]);
-            Ok(Value::Unit)
-        },
-    }));
-
-    global_context
 }
 
 #[derive(Debug)]

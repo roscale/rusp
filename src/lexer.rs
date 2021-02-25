@@ -11,17 +11,13 @@ pub enum Token {
     Id(String),
     Literal(Literal),
     Keyword(Keyword),
-    Operator(Operator),
+    Equal,
     LeftParenthesis,
     RightParenthesis,
     LeftSquareBracket,
     RightSquareBracket,
     LeftBrace,
     RightBrace,
-    Comma,
-    Semicolon,
-    Colon,
-    Dot,
 }
 
 #[derive(Debug, Clone)]
@@ -41,20 +37,6 @@ pub enum Keyword {
     False,
     Fn,
     Let,
-}
-
-#[derive(Debug, Clone)]
-pub enum Operator {
-    Plus,
-    Minus,
-    Asterisk,
-    Slash,
-    Pow,
-    Equal,
-    GreaterThan,
-    LessThan,
-    GreaterThanOrEqual,
-    LessThanOrEqual,
 }
 
 #[derive(Debug)]
@@ -77,20 +59,16 @@ impl<'a> Lexer<'a> {
 
     pub fn tokenize(mut self) -> Result<Vec<Token>, LexerError> {
         loop {
-            let is_the_last_token_an_operator = {
-                match self.tokens.last() {
-                    None => true,
-                    Some(Token::Operator(_)) => true,
-                    Some(_) => false,
-                }
-            };
-
             match self.view {
                 [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
                 ['/', '/', ..] => self.process_comments()?,
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
-                ['+' | '-', digit, ..] if digit.is_ascii_digit() && is_the_last_token_an_operator => self.process_numeric_literals()?,
+                ['+' | '-', digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
+                // Special rules of the equal sign
+                // "=" alone is reserved but it can be used in identifiers
+                ['=', c, ..] if !is_valid_identifier_character(*c) => self.process_operators_and_punctuation()?,
+                ['=', c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
                 [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [e, ..] => return Err(LexerError::UnexpectedCharacter(*e)),
@@ -149,28 +127,14 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
-        use Operator::*;
         let token = match self.view {
+            ['=', ..] => Some((1, Token::Equal)),
             ['(', ..] => Some((1, Token::LeftParenthesis)),
             [')', ..] => Some((1, Token::RightParenthesis)),
             ['[', ..] => Some((1, Token::LeftSquareBracket)),
             [']', ..] => Some((1, Token::RightSquareBracket)),
             ['{', ..] => Some((1, Token::LeftBrace)),
             ['}', ..] => Some((1, Token::RightBrace)),
-            [',', ..] => Some((1, Token::Comma)),
-            [';', ..] => Some((1, Token::Semicolon)),
-            [':', ..] => Some((1, Token::Colon)),
-            ['.', ..] => Some((1, Token::Dot)),
-            ['=', ..] => Some((1, Token::Operator(Equal))),
-            ['>', '=', ..] => Some((2, Token::Operator(GreaterThanOrEqual))),
-            ['>', ..] => Some((1, Token::Operator(GreaterThan))),
-            ['<', '=', ..] => Some((2, Token::Operator(LessThanOrEqual))),
-            ['<', ..] => Some((1, Token::Operator(LessThan))),
-            ['+', ..] => Some((1, Token::Operator(Plus))),
-            ['-', ..] => Some((1, Token::Operator(Minus))),
-            ['*', '*', ..] => Some((2, Token::Operator(Pow))),
-            ['*', ..] => Some((1, Token::Operator(Asterisk))),
-            ['/', ..] => Some((1, Token::Operator(Slash))),
             _ => None,
         };
         if let Some((n, token)) = token {
@@ -262,13 +226,16 @@ impl<'a> Lexer<'a> {
 }
 
 fn is_valid_identifier_character(c: char) -> bool {
-    c.is_alphanumeric() || c == '_'
+    match c {
+        '(' | ')' | '[' | ']' | '{' | '}' => false,
+        c if c.is_whitespace() => false,
+        _ => true,
+    }
 }
 
 fn is_punctuation(c: char) -> bool {
     match c {
-        ',' | ';' | ':' | '=' | '+' | '-' | '*' | '/' | '.' |
-        '<' | '>' | '(' | ')' | '[' | ']' | '{' | '}' => true,
+        '=' | '(' | ')' | '[' | ']' | '{' | '}' => true,
         _ => false,
     }
 }

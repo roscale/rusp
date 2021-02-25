@@ -12,7 +12,7 @@ fn sum (from to) {
 
 let is_greater_than = fn (x) fn (y) (> y x)
 let is_greater_than_4 = (is_greater_than 4)
-
+//
 (println ((is_greater_than 10) 11)) // true
 (println (is_greater_than_4 3)) // false
 

@@ -5,7 +5,7 @@ use std::rc::Rc;
 use ParserError::*;
 
 use crate::interpreter::InterpreterError;
-use crate::lexer::{Keyword, Literal, Operator, Token};
+use crate::lexer::{Keyword, Literal, Token};
 use crate::parser::Expression::Scope;
 
 #[derive(Default, Debug)]
@@ -29,7 +29,6 @@ pub enum Expression {
     Value(Value),
     Declaration(String, Box<Expression>),
     Assignment(String, Box<Expression>),
-    Operation(Operator, Vec<Expression>),
     Scope(Vec<Expression>),
     NamedFunctionDefinition {
         name: String,
@@ -77,7 +76,6 @@ pub enum Function {
     BuiltInFunction {
         closing_context: Rc<RefCell<Context>>,
         name: String,
-        parameters: Vec<String>,
         fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterError>,
     },
     LanguageFunction {
@@ -109,7 +107,7 @@ impl<'a> Parser<'a> {
 
     fn parse_expression(&mut self) -> Result<Expression, ParserError> {
         let expression = match self.view {
-            [Token::Id(_), Token::Operator(Operator::Equal), ..] => self.parse_assignment()?,
+            [Token::Id(_), Token::Equal, ..] => self.parse_assignment()?,
             [Token::Id(id), ..] => {
                 self.view = &self.view[1..];
                 Expression::Id(id.to_owned())
@@ -130,7 +128,7 @@ impl<'a> Parser<'a> {
                 self.view = &self.view[1..];
                 Expression::Value(Value::Boolean(false))
             }
-            [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
+            // [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
@@ -206,7 +204,7 @@ impl<'a> Parser<'a> {
         self.view = &self.view[1..];
 
         match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Operator(Operator::Equal) => (),
+            Token::Equal => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
@@ -224,7 +222,7 @@ impl<'a> Parser<'a> {
         self.view = &self.view[1..];
 
         match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Operator(Operator::Equal) => (),
+            Token::Equal => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
         self.view = &self.view[1..];
@@ -234,34 +232,34 @@ impl<'a> Parser<'a> {
         Ok(Expression::Assignment(name.to_owned(), Box::new(rhs)))
     }
 
-    fn parse_operation(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::LeftParenthesis => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
-        }
-        self.view = &self.view[1..];
-
-        let operator = match self.view.first().ok_or(UnexpectedEOF)? {
-            Token::Operator(op) => op.clone(),
-            t => return Err(UnexpectedToken(t.to_owned()))
-        };
-        self.view = &self.view[1..];
-
-        let mut arguments = Vec::new();
-        loop {
-            match self.view.first().ok_or(UnexpectedEOF)? {
-                Token::RightParenthesis => {
-                    self.view = &self.view[1..];
-                    break;
-                }
-                _ => {
-                    arguments.push(self.parse_expression()?)
-                }
-            }
-        }
-
-        Ok(Expression::Operation(operator, arguments))
-    }
+    // fn parse_operation(&mut self) -> Result<Expression, ParserError> {
+    //     match self.view.first().ok_or(UnexpectedEOF)? {
+    //         Token::LeftParenthesis => (),
+    //         t => return Err(UnexpectedToken(t.to_owned())),
+    //     }
+    //     self.view = &self.view[1..];
+    //
+    //     let operator = match self.view.first().ok_or(UnexpectedEOF)? {
+    //         Token::Operator(op) => op.clone(),
+    //         t => return Err(UnexpectedToken(t.to_owned()))
+    //     };
+    //     self.view = &self.view[1..];
+    //
+    //     let mut arguments = Vec::new();
+    //     loop {
+    //         match self.view.first().ok_or(UnexpectedEOF)? {
+    //             Token::RightParenthesis => {
+    //                 self.view = &self.view[1..];
+    //                 break;
+    //             }
+    //             _ => {
+    //                 arguments.push(self.parse_expression()?)
+    //             }
+    //         }
+    //     }
+    //
+    //     Ok(Expression::Operation(operator, arguments))
+    // }
 
     fn parse_function_call(&mut self) -> Result<Expression, ParserError> {
         match self.view.first().ok_or(UnexpectedEOF)? {
