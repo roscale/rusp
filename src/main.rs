@@ -17,7 +17,7 @@ mod interpreter;
 
 fn main() -> Result<(), AllErrors> {
     let source = {
-        let mut file = File::open("test.rkt").unwrap();
+        let mut file = File::open("examples.rsp").unwrap();
         let mut source = String::new();
         file.read_to_string(&mut source).unwrap();
         source
@@ -44,6 +44,16 @@ fn create_global_context() -> Rc<RefCell<Context>> {
     global_context.borrow_mut().variables.insert(String::from("print"), Value::Function(Function::BuiltInFunction {
         closing_context: global_context.clone(),
         name: "print".to_string(),
+        parameters: vec!["value".to_string()],
+        fn_pointer: |_context, arguments| {
+            print!("{}", arguments[0]);
+            Ok(Value::Unit)
+        },
+    }));
+
+    global_context.borrow_mut().variables.insert(String::from("println"), Value::Function(Function::BuiltInFunction {
+        closing_context: global_context.clone(),
+        name: "println".to_string(),
         parameters: vec!["value".to_string()],
         fn_pointer: |_context, arguments| {
             println!("{}", arguments[0]);

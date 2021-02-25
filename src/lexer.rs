@@ -87,7 +87,7 @@ impl<'a> Lexer<'a> {
 
             match self.view {
                 [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
-                [';', ..] => self.process_comments()?,
+                ['/', '/', ..] => self.process_comments()?,
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
                 ['+' | '-', digit, ..] if digit.is_ascii_digit() && is_the_last_token_an_operator => self.process_numeric_literals()?,

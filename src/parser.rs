@@ -101,13 +101,8 @@ impl<'a> Parser<'a> {
 
     pub fn parse(mut self) -> Result<Vec<Expression>, ParserError> {
         let mut expressions = vec![];
-        loop {
-            match self.view {
-                [_, ..] => {
-                    expressions.push(self.parse_expression()?);
-                }
-                [] => break,
-            }
+        while !self.view.is_empty() {
+            expressions.push(self.parse_expression()?);
         }
         Ok(expressions)
     }
