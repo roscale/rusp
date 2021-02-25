@@ -1,3 +1,5 @@
+/// Same architecture as the lexer.
+/// It outputs a vector of Expressions to be evaluated by the interpreter.
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::Rc;
@@ -231,35 +233,6 @@ impl<'a> Parser<'a> {
 
         Ok(Expression::Assignment(name.to_owned(), Box::new(rhs)))
     }
-
-    // fn parse_operation(&mut self) -> Result<Expression, ParserError> {
-    //     match self.view.first().ok_or(UnexpectedEOF)? {
-    //         Token::LeftParenthesis => (),
-    //         t => return Err(UnexpectedToken(t.to_owned())),
-    //     }
-    //     self.view = &self.view[1..];
-    //
-    //     let operator = match self.view.first().ok_or(UnexpectedEOF)? {
-    //         Token::Operator(op) => op.clone(),
-    //         t => return Err(UnexpectedToken(t.to_owned()))
-    //     };
-    //     self.view = &self.view[1..];
-    //
-    //     let mut arguments = Vec::new();
-    //     loop {
-    //         match self.view.first().ok_or(UnexpectedEOF)? {
-    //             Token::RightParenthesis => {
-    //                 self.view = &self.view[1..];
-    //                 break;
-    //             }
-    //             _ => {
-    //                 arguments.push(self.parse_expression()?)
-    //             }
-    //         }
-    //     }
-    //
-    //     Ok(Expression::Operation(operator, arguments))
-    // }
 
     fn parse_function_call(&mut self) -> Result<Expression, ParserError> {
         match self.view.first().ok_or(UnexpectedEOF)? {

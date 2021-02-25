@@ -1,11 +1,11 @@
-/// Architecture similar to this image
+/// Architecture similar to this image:
 /// https://miro.medium.com/max/875/1%2aluy_LfooQ8dLjhOiaZ1mrg.png
 ///
 /// Initially, Lexer::view is the array of chars of the source code.
 /// I opted to use a char array instead of using iterators because I can fully exploit pattern
 /// matching to look ahead, instead of manually calling .peak() on an iterator.
 /// As the lexer reads the characters, it re-slices the view. The next character to be read will
-/// always be at index 0.
+/// always be at index 0. It outputs a vector of Tokens to be used by the parser.
 #[derive(Debug, Clone)]
 pub enum Token {
     Id(String),

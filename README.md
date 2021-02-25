@@ -64,6 +64,7 @@ let arg = "yes"
 
 ## TODO
 - Logic operators
+- Meaningful errors
 - Lists and built-in functions for lists
 - A mini standard library
 - Custom types
