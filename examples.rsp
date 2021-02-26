@@ -23,7 +23,7 @@ fn recursive_loop (n f) {
     }
 }
 
-let arg = "yes"
+let arg = (input "arg = ")
 (recursive_loop 3 fn () {
     (print (+ arg " "))
     arg = (+ arg "s")

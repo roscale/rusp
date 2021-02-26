@@ -13,7 +13,8 @@ A strange mix of Rust and Lisp. Expression-oriented. Interpreted.
 - Anonymous functions `fn (x y) (+ x y)`
 - All functions are closures
 - Arithmetic operators: `+`, `-`, `*`, `/`, `**`
-- Comparaison operators: `<`, `<=`, `=`, `>=`, `>`
+- Comparison operators: `<`, `<=`, `=`, `>=`, `>`
+- Logic operators: `!`, `&&`, `||`
 - Implicit integer to float to string casting
   - `(= (+ 1 5.8 "da") "6.8da")`
   - `(= (+ "da" 5.8 1) "da5.81")`
@@ -63,9 +64,8 @@ let arg = "yes"
 ```
 
 ## TODO
-- Logic operators
-- Meaningful errors
 - Lists and built-in functions for lists
+- Meaningful errors
 - A mini standard library
 - Custom types
 - Do less variable cloning

@@ -12,6 +12,7 @@ pub enum InterpreterError {
     FunctionNotFound(String),
     WrongNumberOfArguments,
     InvalidOperands,
+    StdInError,
 }
 
 pub trait ContextTrait {
