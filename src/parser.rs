@@ -2,6 +2,7 @@
 /// It outputs a vector of Expressions to be evaluated by the interpreter.
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ops::Range;
 use std::rc::Rc;
 
 use ParserError::*;
@@ -26,34 +27,46 @@ impl Context {
 }
 
 #[derive(Debug, Clone)]
+pub struct ExpressionWithMetadata {
+    pub expression: Expression,
+    pub span: Range<usize>,
+}
+
+#[derive(Debug, Clone)]
+pub struct Label {
+    pub label: String,
+    pub span: Range<usize>,
+}
+
+#[derive(Debug, Clone)]
 pub enum Expression {
     Id(String),
     Value(Value),
-    Declaration(String, Box<Expression>),
-    Assignment(String, Box<Expression>),
-    Scope(Vec<Expression>),
+    Declaration(Label, Box<ExpressionWithMetadata>),
+    Assignment(Label, Box<ExpressionWithMetadata>),
+    Scope(Vec<ExpressionWithMetadata>),
     NamedFunctionDefinition {
-        name: String,
-        parameters: Vec<String>,
-        body: Box<Expression>,
+        name: Label,
+        parameters: Vec<Label>,
+        body: Box<ExpressionWithMetadata>,
     },
     AnonymousFunctionDefinition {
-        parameters: Vec<String>,
-        body: Box<Expression>,
+        parameters: Vec<Label>,
+        body: Box<ExpressionWithMetadata>,
     },
-    FunctionCall(Box<Expression>, Vec<Expression>),
+    FunctionCall(Box<ExpressionWithMetadata>, Vec<ExpressionWithMetadata>),
     If {
-        guard: Box<Expression>,
-        base_case: Box<Expression>,
+        guard: Box<ExpressionWithMetadata>,
+        base_case: Box<ExpressionWithMetadata>,
     },
     IfElse {
-        guard: Box<Expression>,
-        base_case: Box<Expression>,
-        else_case: Box<Expression>,
+        guard: Box<ExpressionWithMetadata>,
+        base_case: Box<ExpressionWithMetadata>,
+        else_case: Box<ExpressionWithMetadata>,
     },
     While {
-        guard: Box<Expression>,
-        body: Box<Expression>,
+        guard: Box<ExpressionWithMetadata>,
+        body: Box<ExpressionWithMetadata>,
     },
 }
 
@@ -89,33 +102,46 @@ pub enum Function {
 }
 
 pub struct Parser<'a> {
-    view: &'a [Token],
+    tokens: &'a [Token],
+    token_indices: &'a [Range<usize>],
+    utf8_index: usize,
 }
 
 impl<'a> Parser<'a> {
-    pub fn new(view: &'a [Token]) -> Self {
+    pub fn new((tokens, indices): (&'a [Token], &'a [Range<usize>])) -> Self {
         Self {
-            view,
+            tokens,
+            token_indices: indices,
+            utf8_index: indices.first().map_or(0, |r| r.start),
         }
     }
 
-    pub fn parse(mut self) -> Result<Vec<Expression>, ParserError> {
+    pub fn advance_by(&mut self, n: usize) {
+        self.utf8_index = self.token_indices[n - 1].end;
+        self.tokens = &self.tokens[n..];
+        self.token_indices = &self.token_indices[n..];
+    }
+
+    pub fn parse(mut self) -> Result<Vec<ExpressionWithMetadata>, ParserError> {
         let mut expressions = vec![];
-        while !self.view.is_empty() {
+
+        while !self.tokens.is_empty() {
             expressions.push(self.parse_expression()?);
         }
         Ok(expressions)
     }
 
-    fn parse_expression(&mut self) -> Result<Expression, ParserError> {
-        let expression = match self.view {
+    fn parse_expression(&mut self) -> Result<ExpressionWithMetadata, ParserError> {
+        let start_index = self.utf8_index;
+
+        let expression = match self.tokens {
             [Token::Id(_), Token::Equal, ..] => self.parse_assignment()?,
             [Token::Id(id), ..] => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 Expression::Id(id.to_owned())
             }
             [Token::Literal(l), ..] => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 match l {
                     Literal::Integer(i) => Expression::Value(Value::Integer(*i)),
                     Literal::Float(f) => Expression::Value(Value::Float(*f)),
@@ -123,11 +149,11 @@ impl<'a> Parser<'a> {
                 }
             }
             [Token::Keyword(Keyword::True), ..] => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 Expression::Value(Value::Boolean(true))
             }
             [Token::Keyword(Keyword::False), ..] => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 Expression::Value(Value::Boolean(false))
             }
             // [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
@@ -140,48 +166,60 @@ impl<'a> Parser<'a> {
             [t, ..] => return Err(UnexpectedToken(t.to_owned())),
             [] => return Err(UnexpectedEOF),
         };
-        Ok(expression)
+        Ok(ExpressionWithMetadata {
+            expression,
+            span: start_index..self.utf8_index,
+        })
     }
 
     pub fn parse_function(&mut self) -> Result<Expression, ParserError> {
-        self.view = &self.view[1..]; // skip "fn"
+        self.advance_by(1); // skip "fn"
 
         // If there's no name, then it's an anonymous function
-        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+        let name_start_index = self.utf8_index;
+        let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 Some(id)
             }
             _ => None
         };
+        let name_end_index = self.utf8_index;
 
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let mut parameters = Vec::new();
         loop {
-            match self.view.first().ok_or(UnexpectedEOF)? {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
                 Token::Id(id) => {
-                    parameters.push(id as &str);
-                    self.view = &self.view[1..];
+                    let start_index = self.utf8_index;
+                    self.advance_by(1);
+                    let end_index = self.utf8_index;
+
+                    parameters.push(Label {
+                        label: id.to_owned(),
+                        span: start_index..end_index,
+                    });
                 }
                 Token::RightParenthesis => {
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     break;
                 }
                 t => return Err(UnexpectedToken(t.to_owned())),
             }
         }
-        let parameters = parameters.into_iter().map(|s| s.to_owned()).collect();
-
         let body = Box::new(self.parse_expression()?);
 
         Ok(match name {
             Some(name) => Expression::NamedFunctionDefinition {
-                name: name.to_owned(),
+                name: Label {
+                    label: name.to_owned(),
+                    span: name_start_index..name_end_index,
+                },
                 parameters,
                 body,
             },
@@ -193,61 +231,71 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_declaration(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::Let) => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
-        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+        let name_start_index = self.utf8_index;
+        let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => id,
             t => return Err(UnexpectedToken(t.to_owned())),
         };
-        self.view = &self.view[1..];
+        self.advance_by(1);
+        let name_end_index = self.utf8_index;
 
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Equal => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let rhs = self.parse_expression()?;
 
-        Ok(Expression::Declaration(name.to_owned(), Box::new(rhs)))
+        Ok(Expression::Declaration(Label {
+            label: name.to_owned(),
+            span: name_start_index..name_end_index,
+        }, Box::new(rhs)))
     }
 
     fn parse_assignment(&mut self) -> Result<Expression, ParserError> {
-        let name = match self.view.first().ok_or(UnexpectedEOF)? {
+        let name_start_index = self.utf8_index;
+        let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => id,
             t => return Err(UnexpectedToken(t.to_owned())),
         };
-        self.view = &self.view[1..];
+        self.advance_by(1);
+        let name_end_index = self.utf8_index;
 
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Equal => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let rhs = self.parse_expression()?;
 
-        Ok(Expression::Assignment(name.to_owned(), Box::new(rhs)))
+        Ok(Expression::Assignment(Label {
+            label: name.to_owned(),
+            span: name_start_index..name_end_index,
+        }, Box::new(rhs)))
     }
 
     fn parse_function_call(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let function_ptr = self.parse_expression()?;
 
         let mut arguments = Vec::new();
         loop {
-            match self.view.first().ok_or(UnexpectedEOF)? {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
                 Token::RightParenthesis => {
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     break;
                 }
                 _ => {
@@ -260,17 +308,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_scope(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftBrace => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let mut expressions = vec![];
         loop {
-            match self.view.first().ok_or(UnexpectedEOF)? {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
                 Token::RightBrace => {
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     break;
                 }
                 _ => expressions.push(self.parse_expression()?)
@@ -280,24 +328,24 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_condition(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::If) => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let guard = self.parse_expression()?;
         let base_case = self.parse_expression()?;
 
-        let else_guard_exists = match self.view.first() {
+        let else_case_exists = match self.tokens.first() {
             Some(Token::Keyword(Keyword::Else)) => {
-                self.view = &self.view[1..];
+                self.advance_by(1);
                 true
             }
             _ => false,
         };
 
-        match else_guard_exists {
+        match else_case_exists {
             false => {
                 Ok(Expression::If {
                     guard: Box::new(guard),
@@ -317,11 +365,11 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_while_loop(&mut self) -> Result<Expression, ParserError> {
-        match self.view.first().ok_or(UnexpectedEOF)? {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::While) => (),
             t => return Err(UnexpectedToken(t.to_owned())),
         }
-        self.view = &self.view[1..];
+        self.advance_by(1);
 
         let guard = self.parse_expression()?;
         let body = self.parse_expression()?;

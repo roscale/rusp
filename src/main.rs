@@ -46,16 +46,18 @@ fn main() -> Result<(), AllErrors> {
         source
     };
 
-    let tokens = {
+    let tokens_with_metadata = {
         let chars = source.chars().collect::<Vec<_>>();
         Lexer::new(chars.as_slice()).tokenize()?
     };
 
-    let expressions = Parser::new(&tokens).parse()?;
+    dbg!(&tokens_with_metadata);
+
+    let expressions = Parser::new((tokens_with_metadata.0.as_slice(), tokens_with_metadata.1.as_slice())).parse()?;
     let global_context = create_global_context_with_built_in_functions();
 
     for expression in &expressions {
-        expression.evaluate(global_context.clone())?;
+        expression.expression.evaluate(global_context.clone())?;
     }
 
     Ok(())

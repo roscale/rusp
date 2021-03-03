@@ -61,28 +61,28 @@ impl Expression {
             Expression::Id(id) => context.get_variable(id as &str).ok_or(VariableNotFound(id.to_owned())),
             Expression::Value(value) => Ok(value.clone()),
             Expression::Declaration(name, rhs) => {
-                let rhs = rhs.evaluate(context.clone())?;
-                context.borrow_mut().variables.insert(name.to_owned(), rhs);
+                let rhs = rhs.expression.evaluate(context.clone())?;
+                context.borrow_mut().variables.insert(name.label.clone(), rhs);
                 Ok(Value::Unit)
             }
             Expression::Assignment(name, rhs) => {
-                let rhs = rhs.evaluate(context.clone())?;
-                context.set_variable(name, rhs).map_err(|_| VariableNotFound(name.to_owned()))?;
+                let rhs = rhs.expression.evaluate(context.clone())?;
+                context.set_variable(&name.label, rhs).map_err(|_| VariableNotFound(name.label.clone()))?;
                 Ok(Value::Unit)
             }
             Expression::Scope(expressions) => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context.clone())));
 
                 expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
-                    acc.and(expression.evaluate(context.clone()))
+                    acc.and(expression.expression.evaluate(context.clone()))
                 })
             }
             Expression::NamedFunctionDefinition { name, parameters, body } => {
-                context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function::LanguageFunction {
+                context.borrow_mut().variables.insert(name.label.clone(), Value::Function(Function::LanguageFunction {
                     closing_context: context.clone(),
-                    name: name.to_owned(),
-                    parameters: parameters.to_owned(),
-                    body: body.clone(),
+                    name: name.label.clone(),
+                    parameters: parameters.iter().map(|p| p.label.clone()).collect(),
+                    body: Box::new(body.expression.clone()),
                 }));
                 Ok(Value::Unit)
             }
@@ -90,16 +90,16 @@ impl Expression {
                 Ok(Value::Function(Function::LanguageFunction {
                     closing_context: context.clone(),
                     name: "anonymous".to_owned(),
-                    parameters: parameters.to_owned(),
-                    body: body.clone(),
+                    parameters: parameters.iter().map(|p| p.label.clone()).collect(),
+                    body: Box::new(body.expression.clone()),
                 }))
             }
             Expression::FunctionCall(function_ptr, arguments) => {
                 let mut values = vec![];
                 for arg in arguments {
-                    values.push(arg.evaluate(context.clone())?);
+                    values.push(arg.expression.evaluate(context.clone())?);
                 }
-                match function_ptr.evaluate(context)? {
+                match function_ptr.expression.evaluate(context)? {
                     Value::Function(f) => f.call(values),
                     v => Err(FunctionNotFound(v.to_string()))
                 }
@@ -107,37 +107,37 @@ impl Expression {
             Expression::If { guard, base_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.evaluate(context.clone())? {
+                let is_guard_true = match guard.expression.evaluate(context.clone())? {
                     Value::Boolean(b) => b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 if is_guard_true {
-                    base_case.evaluate(context)?;
+                    base_case.expression.evaluate(context)?;
                 }
                 Ok(Value::Unit)
             }
             Expression::IfElse { guard, base_case, else_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.evaluate(context.clone())? {
+                let is_guard_true = match guard.expression.evaluate(context.clone())? {
                     Value::Boolean(b) => b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 match is_guard_true {
-                    true => base_case.evaluate(context),
-                    false => else_case.evaluate(context),
+                    true => base_case.expression.evaluate(context),
+                    false => else_case.expression.evaluate(context),
                 }
             }
             Expression::While { guard, body } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
                 while {
-                    match guard.evaluate(context.clone())? {
+                    match guard.expression.evaluate(context.clone())? {
                         Value::Boolean(b) => b,
                         _ => false, // We don't do implicit casting to boolean
                     }
                 } {
-                    body.evaluate(context.clone())?;
+                    body.expression.evaluate(context.clone())?;
                 }
                 Ok(Value::Unit)
             }

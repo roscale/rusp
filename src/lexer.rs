@@ -1,3 +1,5 @@
+use std::ops::Range;
+
 /// Architecture similar to this image:
 /// https://miro.medium.com/max/875/1%2aluy_LfooQ8dLjhOiaZ1mrg.png
 ///
@@ -45,27 +47,43 @@ pub enum LexerError {
 }
 
 pub struct Lexer<'a> {
-    view: &'a [char],
+    chars: &'a [char],
+    utf8_index: usize,
     tokens: Vec<Token>,
+    indices: Vec<Range<usize>>,
 }
 
 impl<'a> Lexer<'a> {
-    pub fn new(view: &'a [char]) -> Self {
+    pub fn new(chars: &'a [char]) -> Self {
         Self {
-            view,
+            chars,
+            utf8_index: 0,
             tokens: vec![],
+            indices: vec![],
         }
     }
 
-    pub fn tokenize(mut self) -> Result<Vec<Token>, LexerError> {
+    pub fn advance_by(&mut self, n: usize) {
+        for char in &self.chars[..n] {
+            self.utf8_index += char.len_utf8();
+        }
+        self.chars = &self.chars[n..];
+    }
+
+    pub fn add_token(&mut self, token: Token, range: Range<usize>) {
+        self.tokens.push(token);
+        self.indices.push(range);
+    }
+
+    pub fn tokenize(mut self) -> Result<(Vec<Token>, Vec<Range<usize>>), LexerError> {
         loop {
-            match self.view {
-                [w, ..] if w.is_whitespace() => self.view = &self.view[1..],
+            match self.chars {
+                [w, ..] if w.is_whitespace() => self.advance_by(1),
                 ['/', '/', ..] => self.process_comments()?,
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
                 ['+' | '-', digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
-                // Special rules of the equal sign
+                // Special rules for the equal sign
                 // "=" alone is reserved but it can be used in identifiers
                 ['=', c, ..] if !is_valid_identifier_character(*c) => self.process_operators_and_punctuation()?,
                 ['=', c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
@@ -75,14 +93,15 @@ impl<'a> Lexer<'a> {
                 [] => break,
             }
         }
-        Ok(self.tokens)
+        Ok((self.tokens, self.indices))
     }
 
     fn process_keywords_and_identifiers(&mut self) -> Result<(), LexerError> {
-        let start = self.view;
+        let start_index = self.utf8_index;
+        let start = self.chars;
         let mut i = 0;
 
-        fn end_token(start: &[char], i: usize) -> Option<Token> {
+        let end_token = |i: usize| -> Option<Token> {
             use Keyword::*;
             match start.is_empty() {
                 true => None,
@@ -102,24 +121,24 @@ impl<'a> Lexer<'a> {
                     Some(token)
                 }
             }
-        }
+        };
 
         loop {
-            match self.view {
+            match self.chars {
                 [c, ..] if !is_valid_identifier_character(*c) => {
-                    if let Some(token) = end_token(start, i) {
-                        self.tokens.push(token);
+                    if let Some(token) = end_token(i) {
+                        self.add_token(token, start_index..self.utf8_index)
                     }
                     break Ok(());
                 }
                 [] => {
-                    if let Some(token) = end_token(start, i) {
-                        self.tokens.push(token);
+                    if let Some(token) = end_token(i) {
+                        self.add_token(token, start_index..self.utf8_index)
                     }
                     break Ok(());
                 }
                 [_, ..] => {
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     i += 1;
                 }
             }
@@ -127,7 +146,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
-        let token = match self.view {
+        let token = match self.chars {
             ['=', ..] => Some((1, Token::Equal)),
             ['(', ..] => Some((1, Token::LeftParenthesis)),
             [')', ..] => Some((1, Token::RightParenthesis)),
@@ -138,31 +157,36 @@ impl<'a> Lexer<'a> {
             _ => None,
         };
         if let Some((n, token)) = token {
-            self.tokens.push(token);
-            self.view = &self.view[n..];
+            let start_index = self.utf8_index;
+            self.advance_by(n);
+            self.add_token(token, start_index..self.utf8_index)
         }
         Ok(())
     }
 
     fn process_string_literals(&mut self) -> Result<(), LexerError> {
-        self.view = &self.view[1..]; // Eat first quote
-        let start = self.view;
+        let start_index = self.utf8_index;
+
+        self.advance_by(1); // Eat first quote
+        let string_start = self.chars;
         let mut i = 0;
         loop {
-            match self.view {
+            match self.chars {
                 ['\\', '"', ..] => {
-                    self.view = &self.view[2..];
+                    self.advance_by(2);
                     i += 2;
                 }
                 ['"', ..] => {
-                    let string = start[..i].iter().collect::<String>();
-                    self.tokens.push(Token::Literal(Literal::String(string)));
+                    let string = string_start[..i].iter().collect::<String>();
+                    self.advance_by(1); // Eat last quote
 
-                    self.view = &self.view[1..]; // Eat last quote
+                    let token = Token::Literal(Literal::String(string));
+                    self.add_token(token, start_index..self.utf8_index);
+
                     break Ok(());
                 }
                 [_, ..] => {
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     i += 1;
                 }
                 [] => break Ok(()),
@@ -171,7 +195,8 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_numeric_literals(&mut self) -> Result<(), LexerError> {
-        let start = self.view;
+        let start_index = self.utf8_index;
+        let start = self.chars;
         let mut i = 0;
         let mut is_float = false;
 
@@ -179,11 +204,11 @@ impl<'a> Lexer<'a> {
         let mut is_point_allowed = true;
 
         loop {
-            match self.view {
+            match self.chars {
                 ['+' | '-', ..] if is_sign_allowed => {
                     is_sign_allowed = false;
 
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     i += 1;
                 }
                 ['.', ..] if is_point_allowed => {
@@ -191,24 +216,25 @@ impl<'a> Lexer<'a> {
                     is_sign_allowed = false;
                     is_float = true;
 
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     i += 1;
                 }
                 [d, ..] if d.is_ascii_digit() => {
                     is_sign_allowed = false;
 
-                    self.view = &self.view[1..];
+                    self.advance_by(1);
                     i += 1;
                 }
                 _ => {
                     let number = &start[..i].iter().collect::<String>();
-                    self.tokens.push(if is_float {
+                    let token = if is_float {
                         let float = number.parse::<f32>().unwrap();
                         Token::Literal(Literal::Float(float))
                     } else {
                         let integer = number.parse::<i32>().unwrap();
                         Token::Literal(Literal::Integer(integer))
-                    });
+                    };
+                    self.add_token(token, start_index..self.utf8_index);
                     break Ok(());
                 }
             }
@@ -217,9 +243,9 @@ impl<'a> Lexer<'a> {
 
     fn process_comments(&mut self) -> Result<(), LexerError> {
         loop {
-            match self.view {
+            match self.chars {
                 ['\n', ..] | [] => break Ok(()),
-                _ => self.view = &self.view[1..]
+                _ => self.advance_by(1)
             }
         }
     }
