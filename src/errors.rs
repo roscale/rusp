@@ -96,6 +96,22 @@ pub fn show_interpreter_error<Name, Source>(error: InterpreterErrorWithSpan, fil
                     Label::primary(file_id, error.span.unwrap()).with_message("not a function")
                 ])
         }
+        InterpreterError::IndexOutOfBounds => {
+            Diagnostic::error()
+                .with_code("E008")
+                .with_message("index out of bounds")
+                .with_labels(vec![
+                    Label::primary(file_id, error.span.unwrap()).with_message("out of bounds")
+                ])
+        }
+        InterpreterError::InvalidIndex => {
+            Diagnostic::error()
+                .with_code("E009")
+                .with_message("invalid index")
+                .with_labels(vec![
+                    Label::primary(file_id, error.span.unwrap()).with_message("invalid index")
+                ])
+        }
     };
 
     let writer = StandardStream::stderr(ColorChoice::Always);

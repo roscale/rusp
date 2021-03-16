@@ -9,7 +9,6 @@ use ParserError::*;
 
 use crate::interpreter::InterpreterErrorWithSpan;
 use crate::lexer::{Keyword, Literal, Token};
-use crate::parser::Expression::Scope;
 
 #[derive(Default, Debug)]
 pub struct Context {
@@ -68,6 +67,7 @@ pub enum Expression {
         guard: Box<ExpressionWithMetadata>,
         body: Box<ExpressionWithMetadata>,
     },
+    List(Vec<ExpressionWithMetadata>),
 }
 
 #[derive(Debug, Clone)]
@@ -78,6 +78,7 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Function(Function),
+    List(Vec<Value>),
 }
 
 #[derive(Debug)]
@@ -164,8 +165,8 @@ impl<'a> Parser<'a> {
                 self.advance_by(1);
                 Expression::Value(Value::Boolean(false))
             }
-            // [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
+            [Token::LeftSquareBracket, ..] => self.parse_list()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
             [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
@@ -332,7 +333,7 @@ impl<'a> Parser<'a> {
                 _ => expressions.push(self.parse_expression()?)
             }
         }
-        Ok(Scope(expressions))
+        Ok(Expression::Scope(expressions))
     }
 
     fn parse_condition(&mut self) -> Result<Expression, ParserError> {
@@ -386,5 +387,27 @@ impl<'a> Parser<'a> {
             guard: Box::new(guard),
             body: Box::new(body),
         })
+    }
+
+    fn parse_list(&mut self) -> Result<Expression, ParserError> {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::LeftSquareBracket => (),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        }
+        self.advance_by(1);
+
+        let mut elements = Vec::new();
+        loop {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
+                Token::RightSquareBracket => {
+                    self.advance_by(1);
+                    break;
+                }
+                _ => {
+                    elements.push(self.parse_expression()?)
+                }
+            }
+        }
+        Ok(Expression::List(elements))
     }
 }

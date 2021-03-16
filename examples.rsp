@@ -1,49 +1,60 @@
-fn max (x y) if (> x y) x else y
+let a = [42 [1 2 3] 99]
 
-fn sum (from to) {
-    let sum = 0
-    let i = from
-    while (<= i to) {
-        sum = (+ sum i)
-        i = (+ i 1)
-    }
-    sum
+let i = 0
+while (< i 3) {
+    (println (get a i))
+    i = (+ i 1)
 }
 
-fn product (from to) {
-    let product = 1
-    let i = from
-    while (<= i to) {
-        product = (* product i)
-        i = (+ i 1)
-    }
-    product
-}
 
-let is_greater_than = fn (x) fn (y) (> y x)
-let is_greater_than_4 = (is_greater_than 4)
+// (println (get [a 42 a] 1))
 
-(println ((is_greater_than 10) 11)) // true
-(println (is_greater_than_4 3)) // false
-
-fn recursive_loop (🌍 🗼) {
-    if (> 🌍 0) {
-        (🗼)
-        (recursive_loop (- 🌍 1) 🗼)
-    }
-}
-
-let 汉语 = "yes"
-(recursive_loop 3 fn () {
-    (print (+ 汉语 " "))
-    汉语 = (+ 汉语 "s")
-})
-(println)
-// yes yess yesss
-
-let choice = (input "sum or product (from 1 to 10)? [s|p] ")
-let result = (if (== choice "s") sum else product 1 10)
-(println result)
+// fn max (x y) if (> x y) x else y
+//
+// fn sum (from to) {
+//     let sum = 0
+//     let i = from
+//     while (<= i to) {
+//         sum = (+ sum i)
+//         i = (+ i 1)
+//     }
+//     sum
+// }
+//
+// fn product (from to) {
+//     let product = 1
+//     let i = from
+//     while (<= i to) {
+//         product = (* product i)
+//         i = (+ i 1)
+//     }
+//     product
+// }
+//
+// let is_greater_than = fn (x) fn (y) (> y x)
+// let is_greater_than_4 = (is_greater_than 4)
+//
+// (println ((is_greater_than 10) 11)) // true
+// (println (is_greater_than_4 3)) // false
+//
+// fn recursive_loop (🌍 🗼) {
+//     if (> 🌍 0) {
+//         (🗼)
+//         (recursive_loop (- 🌍 1) 🗼)
+//     }
+// }
+//
+// let 汉语 = "yes"
+// (recursive_loop 3 fn () {
+//     (print (+ 汉语 " "))
+//     汉语 = (+ 汉语 "s")
+// })
+// (println)
+// // yes yess yesss
+//
+// let choice = (input "sum or product (from 1 to 10)? [s|p] ")
+// let result = (if (== choice "s") sum else product 1 10)
+// (println result)
 
 // Possible future list implementation
 // (@ [1 [1 2 3] 3] 1) == [1 2 3]

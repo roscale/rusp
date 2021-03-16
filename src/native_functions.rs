@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::convert::TryFrom;
 use std::io::Write;
 use std::rc::Rc;
 
@@ -8,7 +9,8 @@ use crate::parser::{Context, Function, Value};
 pub fn add_native_function(
     context: &mut Rc<RefCell<Context>>,
     name: &str,
-    fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterErrorWithSpan>) {
+    fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterErrorWithSpan>,
+) {
     context.borrow_mut().variables.insert(name.to_owned(), Value::Function(Function::NativeFunction {
         closing_context: context.clone(),
         name: name.to_owned(),
@@ -275,6 +277,16 @@ pub fn create_global_context_with_native_functions() -> Rc<RefCell<Context>> {
         std::io::stdin().read_line(&mut line).map_err(|_| InterpreterError::StdInError)?;
         trim_newline(&mut line);
         Ok(Value::String(line))
+    });
+
+    add_native_function(&mut global_context, "get", |_context, arguments| {
+        match arguments.as_slice() {
+            [Value::List(elements), Value::Integer(index)] => {
+                let index = usize::try_from(*index).map_err(|_| InterpreterError::InvalidIndex)?;
+                elements.get(index).cloned().ok_or(InterpreterError::IndexOutOfBounds.into())
+            }
+            _ => Err(InterpreterError::WrongNumberOfArguments.into())
+        }
     });
 
     global_context

@@ -20,6 +20,8 @@ pub enum InterpreterError {
     WrongNumberOfArguments,
     InvalidOperands,
     StdInError,
+    IndexOutOfBounds,
+    InvalidIndex,
 }
 
 impl InterpreterError {
@@ -76,6 +78,20 @@ impl Display for Value {
             Value::Boolean(b) => write!(f, "{}", if *b { "true" } else { "false" }),
             Value::Function(Function::NativeFunction { name, .. }) => write!(f, "fn {}", name),
             Value::Function(Function::RuspFunction { name, .. }) => write!(f, "fn {}", name),
+            Value::List(values) => {
+                write!(f, "[")?;
+                match values.as_slice() {
+                    [single] => write!(f, "{}", single)?,
+                    [init @ .., last] => {
+                        for value in init {
+                            write!(f, "{} ", value)?;
+                        }
+                        write!(f, "{}", last)?;
+                    }
+                    [] => {}
+                }
+                write!(f, "]")
+            }
         }
     }
 }
@@ -176,6 +192,13 @@ impl ExpressionWithMetadata {
                     body.evaluate(context.clone())?;
                 }
                 Ok(Value::Unit)
+            }
+            Expression::List(expressions) => {
+                let mut values = Vec::new();
+                for expression in expressions {
+                    values.push(expression.evaluate(context.clone())?);
+                }
+                Ok(Value::List(values))
             }
         }
     }
