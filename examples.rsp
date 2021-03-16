@@ -10,24 +10,40 @@ fn sum (from to) {
     sum
 }
 
+fn product (from to) {
+    let product = 1
+    let i = from
+    while (<= i to) {
+        product = (* product i)
+        i = (+ i 1)
+    }
+    product
+}
+
 let is_greater_than = fn (x) fn (y) (> y x)
 let is_greater_than_4 = (is_greater_than 4)
 
 (println ((is_greater_than 10) 11)) // true
 (println (is_greater_than_4 3)) // false
 
-fn recursive_loop (n f) {
-    if (> n 0) {
-        (f)
-        (recursive_loop (- n 1) f)
+fn recursive_loop (🌍 🗼) {
+    if (> 🌍 0) {
+        (🗼)
+        (recursive_loop (- 🌍 1) 🗼)
     }
 }
 
-let arg = (input "arg = ")
+let 汉语 = "yes"
 (recursive_loop 3 fn () {
-    (print (+ arg " "))
-    arg = (+ arg "s")
+    (print (+ 汉语 " "))
+    汉语 = (+ 汉语 "s")
 })
+(println)
+
+let choice = (input "sum or product (from 1 to 10)? [s|p] ")
+let result = (if (== choice "s") sum else product 1 10)
+(println result)
+
 // yes yess yesss
 
 // Possible future list implementation

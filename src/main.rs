@@ -7,15 +7,19 @@ use std::{env, process};
 use std::fs::File;
 use std::io::Read;
 
-use crate::built_in_functions::create_global_context_with_built_in_functions;
-use crate::interpreter::InterpreterError;
+use codespan_reporting::files::SimpleFiles;
+
+use crate::native_functions::create_global_context_with_native_functions;
+use crate::interpreter::{InterpreterError, InterpreterErrorWithSpan};
 use crate::lexer::{Lexer, LexerError};
 use crate::parser::{Parser, ParserError};
+use crate::errors::{show_lexer_error, show_parser_error, show_interpreter_error};
 
 mod lexer;
 mod parser;
 mod interpreter;
-mod built_in_functions;
+mod native_functions;
+mod errors;
 
 fn main() -> Result<(), AllErrors> {
     let mut args = env::args();
@@ -46,18 +50,42 @@ fn main() -> Result<(), AllErrors> {
         source
     };
 
+
+    let mut files = SimpleFiles::new();
+    let source_file = files.add(script_path, &source);
+
     let tokens_with_metadata = {
         let chars = source.chars().collect::<Vec<_>>();
-        Lexer::new(chars.as_slice()).tokenize()?
+        Lexer::new(chars.as_slice()).tokenize()
     };
 
-    dbg!(&tokens_with_metadata);
+    let tokens_with_metadata = match tokens_with_metadata {
+        Ok(t) => t,
+        Err(err) => {
+            show_lexer_error(err, source_file, files);
+            return Ok(());
+        }
+    };
 
-    let expressions = Parser::new((tokens_with_metadata.0.as_slice(), tokens_with_metadata.1.as_slice())).parse()?;
-    let global_context = create_global_context_with_built_in_functions();
+    let expressions = Parser::new((tokens_with_metadata.0.as_slice(), tokens_with_metadata.1.as_slice())).parse();
+    let expressions = match expressions {
+        Ok(e) => e,
+        Err(err) => {
+            show_parser_error(err, source_file, files);
+            return Ok(());
+        }
+    };
 
-    for expression in &expressions {
-        expression.expression.evaluate(global_context.clone())?;
+    let global_context = create_global_context_with_native_functions();
+
+    let result: Result<(), InterpreterErrorWithSpan> = try {
+        for expression in &expressions {
+            expression.evaluate(global_context.clone())?;
+        }
+    };
+
+    if let Err(err) = result {
+        show_interpreter_error(err, source_file, files);
     }
 
     Ok(())

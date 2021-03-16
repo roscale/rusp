@@ -7,7 +7,7 @@ use std::rc::Rc;
 
 use ParserError::*;
 
-use crate::interpreter::InterpreterError;
+use crate::interpreter::InterpreterErrorWithSpan;
 use crate::lexer::{Keyword, Literal, Token};
 use crate::parser::Expression::Scope;
 
@@ -82,29 +82,30 @@ pub enum Value {
 
 #[derive(Debug)]
 pub enum ParserError {
-    UnexpectedToken(Token),
+    UnexpectedToken(Range<usize>),
     UnexpectedEOF,
 }
 
 #[derive(Debug, Clone)]
 pub enum Function {
-    BuiltInFunction {
+    NativeFunction {
         closing_context: Rc<RefCell<Context>>,
         name: String,
-        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterError>,
+        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterErrorWithSpan>,
     },
-    LanguageFunction {
+    RuspFunction {
         closing_context: Rc<RefCell<Context>>,
         name: String,
         parameters: Vec<String>,
-        body: Box<Expression>,
+        body: Box<ExpressionWithMetadata>,
     },
 }
 
 pub struct Parser<'a> {
     tokens: &'a [Token],
     token_indices: &'a [Range<usize>],
-    utf8_index: usize,
+    utf8_start_index: usize,
+    utf8_end_index: usize,
 }
 
 impl<'a> Parser<'a> {
@@ -112,12 +113,19 @@ impl<'a> Parser<'a> {
         Self {
             tokens,
             token_indices: indices,
-            utf8_index: indices.first().map_or(0, |r| r.start),
+            utf8_start_index: indices.first().map_or(0, |r| r.start),
+            utf8_end_index: indices.first().map_or(0, |r| r.end),
         }
     }
 
     pub fn advance_by(&mut self, n: usize) {
-        self.utf8_index = self.token_indices[n - 1].end;
+        // We can't get the nth element at the end of the file.
+        self.utf8_start_index = if let Some(span) = self.token_indices.get(n) {
+            span.start
+        } else {
+            self.token_indices[n - 1].end
+        };
+        self.utf8_end_index = self.token_indices[n - 1].end;
         self.tokens = &self.tokens[n..];
         self.token_indices = &self.token_indices[n..];
     }
@@ -132,7 +140,7 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_expression(&mut self) -> Result<ExpressionWithMetadata, ParserError> {
-        let start_index = self.utf8_index;
+        let start_index = self.utf8_start_index;
 
         let expression = match self.tokens {
             [Token::Id(_), Token::Equal, ..] => self.parse_assignment()?,
@@ -163,12 +171,12 @@ impl<'a> Parser<'a> {
             [Token::Keyword(Keyword::Let), ..] => self.parse_declaration()?,
             [Token::Keyword(Keyword::If), ..] => self.parse_condition()?,
             [Token::Keyword(Keyword::While), ..] => self.parse_while_loop()?,
-            [t, ..] => return Err(UnexpectedToken(t.to_owned())),
+            [_, ..] => return Err(UnexpectedToken(self.token_indices[0].clone())),
             [] => return Err(UnexpectedEOF),
         };
         Ok(ExpressionWithMetadata {
             expression,
-            span: start_index..self.utf8_index,
+            span: start_index..self.utf8_end_index,
         })
     }
 
@@ -176,7 +184,7 @@ impl<'a> Parser<'a> {
         self.advance_by(1); // skip "fn"
 
         // If there's no name, then it's an anonymous function
-        let name_start_index = self.utf8_index;
+        let name_start_index = self.utf8_start_index;
         let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => {
                 self.advance_by(1);
@@ -184,11 +192,11 @@ impl<'a> Parser<'a> {
             }
             _ => None
         };
-        let name_end_index = self.utf8_index;
+        let name_end_index = self.utf8_end_index;
 
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -196,9 +204,9 @@ impl<'a> Parser<'a> {
         loop {
             match self.tokens.first().ok_or(UnexpectedEOF)? {
                 Token::Id(id) => {
-                    let start_index = self.utf8_index;
+                    let start_index = self.utf8_start_index;
                     self.advance_by(1);
-                    let end_index = self.utf8_index;
+                    let end_index = self.utf8_end_index;
 
                     parameters.push(Label {
                         label: id.to_owned(),
@@ -209,7 +217,7 @@ impl<'a> Parser<'a> {
                     self.advance_by(1);
                     break;
                 }
-                t => return Err(UnexpectedToken(t.to_owned())),
+                _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
             }
         }
         let body = Box::new(self.parse_expression()?);
@@ -233,21 +241,21 @@ impl<'a> Parser<'a> {
     fn parse_declaration(&mut self) -> Result<Expression, ParserError> {
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::Let) => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
-        let name_start_index = self.utf8_index;
+        let name_start_index = self.utf8_start_index;
         let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => id,
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         };
         self.advance_by(1);
-        let name_end_index = self.utf8_index;
+        let name_end_index = self.utf8_end_index;
 
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Equal => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -260,17 +268,17 @@ impl<'a> Parser<'a> {
     }
 
     fn parse_assignment(&mut self) -> Result<Expression, ParserError> {
-        let name_start_index = self.utf8_index;
+        let name_start_index = self.utf8_start_index;
         let name = match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Id(id) => id,
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         };
         self.advance_by(1);
-        let name_end_index = self.utf8_index;
+        let name_end_index = self.utf8_end_index;
 
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Equal => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -285,7 +293,7 @@ impl<'a> Parser<'a> {
     fn parse_function_call(&mut self) -> Result<Expression, ParserError> {
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftParenthesis => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -310,7 +318,7 @@ impl<'a> Parser<'a> {
     fn parse_scope(&mut self) -> Result<Expression, ParserError> {
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::LeftBrace => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -330,7 +338,7 @@ impl<'a> Parser<'a> {
     fn parse_condition(&mut self) -> Result<Expression, ParserError> {
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::If) => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 
@@ -367,7 +375,7 @@ impl<'a> Parser<'a> {
     fn parse_while_loop(&mut self) -> Result<Expression, ParserError> {
         match self.tokens.first().ok_or(UnexpectedEOF)? {
             Token::Keyword(Keyword::While) => (),
-            t => return Err(UnexpectedToken(t.to_owned())),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
         }
         self.advance_by(1);
 

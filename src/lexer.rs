@@ -43,7 +43,7 @@ pub enum Keyword {
 
 #[derive(Debug)]
 pub enum LexerError {
-    UnexpectedCharacter(char),
+    UnexpectedCharacter(Range<usize>),
 }
 
 pub struct Lexer<'a> {
@@ -89,7 +89,7 @@ impl<'a> Lexer<'a> {
                 ['=', c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
                 [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
-                [e, ..] => return Err(LexerError::UnexpectedCharacter(*e)),
+                [e, ..] => return Err(LexerError::UnexpectedCharacter(self.utf8_index..self.utf8_index + e.len_utf8())),
                 [] => break,
             }
         }

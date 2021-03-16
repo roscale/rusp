@@ -1,18 +1,43 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
+use std::ops::Range;
 use std::rc::Rc;
 
 use crate::interpreter::InterpreterError::*;
-use crate::parser::{Context, Expression, Function, Value};
+use crate::parser::{Context, Expression, ExpressionWithMetadata, Function, Value};
+
+#[derive(Debug)]
+pub struct InterpreterErrorWithSpan {
+    pub error: InterpreterError,
+    pub span: Option<Range<usize>>,
+}
 
 #[derive(Debug)]
 pub enum InterpreterError {
     VariableNotFound(String),
-    FunctionNotFound(String),
+    NotAFunction,
     WrongNumberOfArguments,
     InvalidOperands,
     StdInError,
+}
+
+impl InterpreterError {
+    pub fn with_span(self, span: Range<usize>) -> InterpreterErrorWithSpan {
+        InterpreterErrorWithSpan {
+            error: self,
+            span: Some(span),
+        }
+    }
+}
+
+impl From<InterpreterError> for InterpreterErrorWithSpan {
+    fn from(error: InterpreterError) -> Self {
+        InterpreterErrorWithSpan {
+            error,
+            span: None,
+        }
+    }
 }
 
 pub trait ContextTrait {
@@ -49,95 +74,106 @@ impl Display for Value {
             Value::Float(float) => write!(f, "{}", float),
             Value::String(string) => write!(f, "{}", string),
             Value::Boolean(b) => write!(f, "{}", if *b { "true" } else { "false" }),
-            Value::Function(Function::BuiltInFunction { name, .. }) => write!(f, "fn {}", name),
-            Value::Function(Function::LanguageFunction { name, .. }) => write!(f, "fn {}", name),
+            Value::Function(Function::NativeFunction { name, .. }) => write!(f, "fn {}", name),
+            Value::Function(Function::RuspFunction { name, .. }) => write!(f, "fn {}", name),
         }
     }
 }
 
-impl Expression {
-    pub(crate) fn evaluate(&self, context: Rc<RefCell<Context>>) -> Result<Value, InterpreterError> {
-        match self {
-            Expression::Id(id) => context.get_variable(id as &str).ok_or(VariableNotFound(id.to_owned())),
+impl ExpressionWithMetadata {
+    pub(crate) fn evaluate(&self, context: Rc<RefCell<Context>>) -> Result<Value, InterpreterErrorWithSpan> {
+        match &self.expression {
+            Expression::Id(id) => context.get_variable(id as &str)
+                .ok_or(VariableNotFound(id.to_owned()).with_span(self.span.clone())),
             Expression::Value(value) => Ok(value.clone()),
             Expression::Declaration(name, rhs) => {
-                let rhs = rhs.expression.evaluate(context.clone())?;
+                let rhs = rhs.evaluate(context.clone())?;
                 context.borrow_mut().variables.insert(name.label.clone(), rhs);
                 Ok(Value::Unit)
             }
             Expression::Assignment(name, rhs) => {
-                let rhs = rhs.expression.evaluate(context.clone())?;
-                context.set_variable(&name.label, rhs).map_err(|_| VariableNotFound(name.label.clone()))?;
-                Ok(Value::Unit)
+                let rhs = rhs.evaluate(context.clone())?;
+                match context.set_variable(&name.label, rhs) {
+                    Ok(()) => Ok(Value::Unit),
+                    Err(()) => Err(VariableNotFound(name.label.to_owned())
+                        .with_span(name.span.clone()))
+                }
             }
             Expression::Scope(expressions) => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context.clone())));
 
                 expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
-                    acc.and(expression.expression.evaluate(context.clone()))
+                    acc.and(expression.evaluate(context.clone()))
                 })
             }
             Expression::NamedFunctionDefinition { name, parameters, body } => {
-                context.borrow_mut().variables.insert(name.label.clone(), Value::Function(Function::LanguageFunction {
+                context.borrow_mut().variables.insert(name.label.clone(), Value::Function(Function::RuspFunction {
                     closing_context: context.clone(),
                     name: name.label.clone(),
                     parameters: parameters.iter().map(|p| p.label.clone()).collect(),
-                    body: Box::new(body.expression.clone()),
+                    body: body.clone(),
                 }));
                 Ok(Value::Unit)
             }
             Expression::AnonymousFunctionDefinition { parameters, body } => {
-                Ok(Value::Function(Function::LanguageFunction {
+                Ok(Value::Function(Function::RuspFunction {
                     closing_context: context.clone(),
-                    name: "anonymous".to_owned(),
+                    name: "*anonymous*".to_owned(),
                     parameters: parameters.iter().map(|p| p.label.clone()).collect(),
-                    body: Box::new(body.expression.clone()),
+                    body: body.clone(),
                 }))
             }
             Expression::FunctionCall(function_ptr, arguments) => {
                 let mut values = vec![];
                 for arg in arguments {
-                    values.push(arg.expression.evaluate(context.clone())?);
+                    values.push(arg.evaluate(context.clone())?);
                 }
-                match function_ptr.expression.evaluate(context)? {
-                    Value::Function(f) => f.call(values),
-                    v => Err(FunctionNotFound(v.to_string()))
+                match function_ptr.evaluate(context)? {
+                    Value::Function(f) => {
+                        f.call(values).map_err(|mut err| {
+                            if err.span.is_none() {
+                                err.span = Some(self.span.clone());
+                            }
+                            err
+                        })
+                    }
+                    _ => Err(NotAFunction.with_span(function_ptr.span.clone()))
                 }
             }
             Expression::If { guard, base_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.expression.evaluate(context.clone())? {
+                let is_guard_true = match guard.evaluate(context.clone())? {
                     Value::Boolean(b) => b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 if is_guard_true {
-                    base_case.expression.evaluate(context)?;
+                    base_case.evaluate(context)?;
                 }
                 Ok(Value::Unit)
             }
             Expression::IfElse { guard, base_case, else_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.expression.evaluate(context.clone())? {
+                let is_guard_true = match guard.evaluate(context.clone())? {
                     Value::Boolean(b) => b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 match is_guard_true {
-                    true => base_case.expression.evaluate(context),
-                    false => else_case.expression.evaluate(context),
+                    true => base_case.evaluate(context),
+                    false => else_case.evaluate(context),
                 }
             }
             Expression::While { guard, body } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
                 while {
-                    match guard.expression.evaluate(context.clone())? {
+                    match guard.evaluate(context.clone())? {
                         Value::Boolean(b) => b,
                         _ => false, // We don't do implicit casting to boolean
                     }
                 } {
-                    body.expression.evaluate(context.clone())?;
+                    body.evaluate(context.clone())?;
                 }
                 Ok(Value::Unit)
             }
@@ -146,14 +182,14 @@ impl Expression {
 }
 
 impl Function {
-    pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterError> {
+    pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterErrorWithSpan> {
         match self {
-            Function::BuiltInFunction { closing_context, name: _, fn_pointer } => {
+            Function::NativeFunction { closing_context, name: _, fn_pointer } => {
                 fn_pointer(closing_context.clone(), args)
             }
-            Function::LanguageFunction { closing_context, name: _, parameters, body } => {
+            Function::RuspFunction { closing_context, name: _, parameters, body } => {
                 if parameters.len() != args.len() {
-                    return Err(InterpreterError::WrongNumberOfArguments);
+                    return Err(InterpreterError::WrongNumberOfArguments.into());
                 }
 
                 // Put the arguments in the context
