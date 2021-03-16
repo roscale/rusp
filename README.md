@@ -63,9 +63,17 @@ let arg = "yes"
 // yes yess yesss
 ```
 
+## Fancy error messages
+```rust
+error[E0003]: variable 'z' not found
+   ┌─ examples.rsp:47:19
+   │
+47 │ fn f (x y) (+ x y z)
+   │                   ^ variable not found
+```
+
 ## TODO
 - Lists and built-in functions for lists
-- Meaningful errors
 - A mini standard library
 - Custom types
 - Do less variable cloning

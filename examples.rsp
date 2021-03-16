@@ -39,12 +39,11 @@ let 汉语 = "yes"
     汉语 = (+ 汉语 "s")
 })
 (println)
+// yes yess yesss
 
 let choice = (input "sum or product (from 1 to 10)? [s|p] ")
 let result = (if (== choice "s") sum else product 1 10)
 (println result)
-
-// yes yess yesss
 
 // Possible future list implementation
 // (@ [1 [1 2 3] 3] 1) == [1 2 3]
