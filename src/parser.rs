@@ -13,7 +13,7 @@ use crate::lexer::{Keyword, Literal, Token};
 #[derive(Default, Debug)]
 pub struct Context {
     pub parent_context: Option<Rc<RefCell<Context>>>,
-    pub variables: HashMap<String, Value>,
+    pub variables: HashMap<String, Rc<RefCell<Value>>>,
 }
 
 impl Context {
@@ -21,6 +21,23 @@ impl Context {
         Self {
             parent_context: Some(parent_context),
             ..Default::default()
+        }
+    }
+
+    pub fn get_variable(&self, name: &str) -> Option<Rc<RefCell<Value>>> {
+        match self.variables.get(name) {
+            None => self.parent_context.as_ref().and_then(|p| p.borrow().get_variable(name)),
+            Some(value) => Some(value.clone())
+        }
+    }
+
+    pub fn set_variable(&mut self, name: &str, new_value: Rc<RefCell<Value>>) -> Result<(), ()> {
+        match self.variables.get_mut(name) {
+            None => self.parent_context.as_ref().ok_or(()).and_then(|p| p.borrow_mut().set_variable(name, new_value)),
+            Some(value) => {
+                *value = new_value;
+                Ok(())
+            }
         }
     }
 }
@@ -78,8 +95,23 @@ pub enum Value {
     String(String),
     Boolean(bool),
     Function(Function),
-    List(Vec<Value>),
+    List(Vec<Rc<RefCell<Value>>>),
 }
+
+
+impl Value {
+    pub fn unit() -> Rc<RefCell<Self>> {
+        Rc::new(RefCell::new(Value::Unit))
+    }
+}
+
+pub trait IntoSharedRef {
+    fn into_shared_ref(self) -> Rc<RefCell<Self>> where Self: Sized {
+        Rc::new(RefCell::new(self))
+    }
+}
+
+impl IntoSharedRef for Value {}
 
 #[derive(Debug)]
 pub enum ParserError {
@@ -92,7 +124,7 @@ pub enum Function {
     NativeFunction {
         closing_context: Rc<RefCell<Context>>,
         name: String,
-        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterErrorWithSpan>,
+        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Rc<RefCell<Value>>>) -> Result<Rc<RefCell<Value>>, InterpreterErrorWithSpan>,
     },
     RuspFunction {
         closing_context: Rc<RefCell<Context>>,

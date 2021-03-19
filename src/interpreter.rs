@@ -1,11 +1,11 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::{Display, Formatter};
-use std::ops::Range;
-use std::rc::Rc;
+use std::ops::{Range, Deref};
 
 use crate::interpreter::InterpreterError::*;
-use crate::parser::{Context, Expression, ExpressionWithMetadata, Function, Value};
+use crate::parser::{Context, Expression, ExpressionWithMetadata, Function, Value, IntoSharedRef};
+use std::rc::Rc;
 
 #[derive(Debug)]
 pub struct InterpreterErrorWithSpan {
@@ -42,32 +42,6 @@ impl From<InterpreterError> for InterpreterErrorWithSpan {
     }
 }
 
-pub trait ContextTrait {
-    fn get_variable(&self, name: &str) -> Option<Value>;
-    fn set_variable(&self, name: &str, value: Value) -> Result<(), ()>;
-}
-
-impl ContextTrait for Rc<RefCell<Context>> {
-    fn get_variable(&self, name: &str) -> Option<Value> {
-        let b = RefCell::borrow(self);
-        match b.variables.get(name) {
-            None => b.parent_context.as_ref().and_then(|p| p.get_variable(name)),
-            Some(value) => Some(value.clone())
-        }
-    }
-
-    fn set_variable(&self, name: &str, new_value: Value) -> Result<(), ()> {
-        let mut b = RefCell::borrow_mut(self);
-        match b.variables.get_mut(name) {
-            None => b.parent_context.as_ref().ok_or(()).and_then(|p| p.set_variable(name, new_value)),
-            Some(value) => {
-                *value = new_value;
-                Ok(())
-            }
-        }
-    }
-}
-
 impl Display for Value {
     fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
         match self {
@@ -81,12 +55,12 @@ impl Display for Value {
             Value::List(values) => {
                 write!(f, "[")?;
                 match values.as_slice() {
-                    [single] => write!(f, "{}", single)?,
+                    [single] => write!(f, "{}", single.borrow())?,
                     [init @ .., last] => {
                         for value in init {
-                            write!(f, "{} ", value)?;
+                            write!(f, "{} ", value.borrow())?;
                         }
-                        write!(f, "{}", last)?;
+                        write!(f, "{}", last.borrow())?;
                     }
                     [] => {}
                 }
@@ -97,20 +71,20 @@ impl Display for Value {
 }
 
 impl ExpressionWithMetadata {
-    pub(crate) fn evaluate(&self, context: Rc<RefCell<Context>>) -> Result<Value, InterpreterErrorWithSpan> {
+    pub(crate) fn evaluate(&self, context: Rc<RefCell<Context>>) -> Result<Rc<RefCell<Value>>, InterpreterErrorWithSpan> {
         match &self.expression {
-            Expression::Id(id) => context.get_variable(id as &str)
+            Expression::Id(id) => context.borrow().get_variable(id as &str)
                 .ok_or(VariableNotFound(id.to_owned()).with_span(self.span.clone())),
-            Expression::Value(value) => Ok(value.clone()),
+            Expression::Value(value) => Ok(Rc::new(RefCell::new(value.clone()))),
             Expression::Declaration(name, rhs) => {
                 let rhs = rhs.evaluate(context.clone())?;
                 context.borrow_mut().variables.insert(name.label.clone(), rhs);
-                Ok(Value::Unit)
+                Ok(Value::unit())
             }
             Expression::Assignment(name, rhs) => {
                 let rhs = rhs.evaluate(context.clone())?;
-                match context.set_variable(&name.label, rhs) {
-                    Ok(()) => Ok(Value::Unit),
+                match context.borrow_mut().set_variable(&name.label, rhs) {
+                    Ok(()) => Ok(Value::unit()),
                     Err(()) => Err(VariableNotFound(name.label.to_owned())
                         .with_span(name.span.clone()))
                 }
@@ -118,7 +92,7 @@ impl ExpressionWithMetadata {
             Expression::Scope(expressions) => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context.clone())));
 
-                expressions.iter().fold(Ok(Value::Unit), |acc, expression| {
+                expressions.iter().fold(Ok(Value::unit()), |acc, expression| {
                     acc.and(expression.evaluate(context.clone()))
                 })
             }
@@ -128,8 +102,8 @@ impl ExpressionWithMetadata {
                     name: name.label.clone(),
                     parameters: parameters.iter().map(|p| p.label.clone()).collect(),
                     body: body.clone(),
-                }));
-                Ok(Value::Unit)
+                }).into_shared_ref());
+                Ok(Value::unit())
             }
             Expression::AnonymousFunctionDefinition { parameters, body } => {
                 Ok(Value::Function(Function::RuspFunction {
@@ -137,14 +111,14 @@ impl ExpressionWithMetadata {
                     name: "*anonymous*".to_owned(),
                     parameters: parameters.iter().map(|p| p.label.clone()).collect(),
                     body: body.clone(),
-                }))
+                }).into_shared_ref())
             }
             Expression::FunctionCall(function_ptr, arguments) => {
                 let mut values = vec![];
                 for arg in arguments {
                     values.push(arg.evaluate(context.clone())?);
                 }
-                match function_ptr.evaluate(context)? {
+                match function_ptr.evaluate(context)?.borrow().deref() {
                     Value::Function(f) => {
                         f.call(values).map_err(|mut err| {
                             if err.span.is_none() {
@@ -159,20 +133,20 @@ impl ExpressionWithMetadata {
             Expression::If { guard, base_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.evaluate(context.clone())? {
-                    Value::Boolean(b) => b,
+                let is_guard_true = match guard.evaluate(context.clone())?.borrow().deref() {
+                    Value::Boolean(b) => *b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 if is_guard_true {
                     base_case.evaluate(context)?;
                 }
-                Ok(Value::Unit)
+                Ok(Value::unit())
             }
             Expression::IfElse { guard, base_case, else_case } => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
-                let is_guard_true = match guard.evaluate(context.clone())? {
-                    Value::Boolean(b) => b,
+                let is_guard_true = match guard.evaluate(context.clone())?.borrow().deref() {
+                    Value::Boolean(b) => *b,
                     _ => false, // We don't do implicit casting to boolean
                 };
                 match is_guard_true {
@@ -184,28 +158,28 @@ impl ExpressionWithMetadata {
                 let context = Rc::new(RefCell::new(Context::with_parent(context)));
 
                 while {
-                    match guard.evaluate(context.clone())? {
-                        Value::Boolean(b) => b,
+                    match guard.evaluate(context.clone())?.borrow().deref() {
+                        Value::Boolean(b) => *b,
                         _ => false, // We don't do implicit casting to boolean
                     }
                 } {
                     body.evaluate(context.clone())?;
                 }
-                Ok(Value::Unit)
+                Ok(Value::unit())
             }
             Expression::List(expressions) => {
                 let mut values = Vec::new();
                 for expression in expressions {
                     values.push(expression.evaluate(context.clone())?);
                 }
-                Ok(Value::List(values))
+                Ok(Value::List(values).into_shared_ref())
             }
         }
     }
 }
 
 impl Function {
-    pub fn call(&self, args: Vec<Value>) -> Result<Value, InterpreterErrorWithSpan> {
+    pub fn call(&self, args: Vec<Rc<RefCell<Value>>>) -> Result<Rc<RefCell<Value>>, InterpreterErrorWithSpan> {
         match self {
             Function::NativeFunction { closing_context, name: _, fn_pointer } => {
                 fn_pointer(closing_context.clone(), args)

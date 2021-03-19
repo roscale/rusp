@@ -1,10 +1,11 @@
 let a = [42 [1 2 3] 99]
-
-let i = 0
-while (< i 3) {
-    (println (get a i))
-    i = (+ i 1)
-}
+(push a 4)
+(println a)
+// let i = 0
+// while (< i 3) {
+//     (println (get a i))
+//     i = (+ i 1)
+// }
 
 
 // (println (get [a 42 a] 1))
