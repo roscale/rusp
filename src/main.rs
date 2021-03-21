@@ -2,6 +2,7 @@
 #![feature(box_patterns)]
 #![feature(try_blocks)]
 #![feature(exact_size_is_empty)]
+#![feature(num_as_ne_bytes)]
 
 use std::{env, process};
 use std::fs::File;
@@ -14,12 +15,14 @@ use crate::interpreter::{InterpreterError, InterpreterErrorWithSpan};
 use crate::lexer::{Lexer, LexerError};
 use crate::parser::{Parser, ParserError};
 use crate::errors::{show_lexer_error, show_parser_error, show_interpreter_error};
+use crate::jvm_compiler::to_bytecode;
 
 mod lexer;
 mod parser;
 mod interpreter;
 mod native_functions;
 mod errors;
+mod jvm_compiler;
 
 fn main() -> Result<(), AllErrors> {
     let mut args = env::args();
@@ -76,17 +79,19 @@ fn main() -> Result<(), AllErrors> {
         }
     };
 
-    let global_context = create_global_context_with_native_functions();
+    let _ = to_bytecode(expressions);
 
-    let result: Result<(), InterpreterErrorWithSpan> = try {
-        for expression in &expressions {
-            expression.evaluate(global_context.clone())?;
-        }
-    };
-
-    if let Err(err) = result {
-        show_interpreter_error(err, source_file, files);
-    }
+    // let global_context = create_global_context_with_native_functions();
+    //
+    // let result: Result<(), InterpreterErrorWithSpan> = try {
+    //     for expression in &expressions {
+    //         expression.evaluate(global_context.clone())?;
+    //     }
+    // };
+    //
+    // if let Err(err) = result {
+    //     show_interpreter_error(err, source_file, files);
+    // }
 
     Ok(())
 }
