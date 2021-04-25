@@ -23,6 +23,9 @@ mod interpreter;
 mod native_functions;
 mod errors;
 mod jvm_compiler;
+mod bytecode;
+mod constant_pool;
+mod variable_stack;
 
 fn main() -> Result<(), AllErrors> {
     let mut args = env::args();

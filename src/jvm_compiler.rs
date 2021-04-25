@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fs::File;
 use std::io;
@@ -5,25 +6,21 @@ use std::io::Write;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
-use crate::parser::ExpressionWithMetadata;
+use crate::bytecode::Bytecode;
+use crate::constant_pool::ConstantPool;
+use crate::parser::{Expression, ExpressionWithMetadata, Value};
+use crate::variable_stack::VariableStack;
 
 struct ClassFile {
     magic: u32,
     minor_version: u16,
     major_version: u16,
-    constant_pool_table: Vec<ConstantPoolItem>,
+    constant_pool: ConstantPool,
     access_flags: u16,
     this_class: u16,
     super_class: u16,
     methods: Vec<Method>,
     attributes: Vec<GenericAttribute>,
-}
-
-enum ConstantPoolItem {
-    String(String),
-    ClassRef(u16),
-    NameAndType { name: u16, descriptor: u16 },
-    MethodRef { class_ref: u16, name_and_type: u16 },
 }
 
 enum ClassAccessFlags {
@@ -133,7 +130,7 @@ struct SourceFileAttribute {
 
 impl TryFrom<SourceFileAttribute> for GenericAttribute {
     type Error = io::Error;
-    
+
     fn try_from(source_file_attribute: SourceFileAttribute) -> Result<Self, Self::Error> {
         Ok(Self {
             name_index: source_file_attribute.name_index,
@@ -152,7 +149,7 @@ impl ClassFile {
             magic: 0xCAFEBABE,
             minor_version: 0,
             major_version: 52,
-            constant_pool_table: Vec::new(),
+            constant_pool: ConstantPool::new(),
             access_flags: ClassAccessFlags::Public as u16 | ClassAccessFlags::Super as u16,
             this_class: 0,
             super_class: 0,
@@ -161,16 +158,16 @@ impl ClassFile {
         }
     }
 
-    pub fn add_class(&mut self, name: String) -> usize {
-        self.constant_pool_table.push(ConstantPoolItem::String(name));
-        self.constant_pool_table.push(ConstantPoolItem::ClassRef(self.constant_pool_table.len() as u16));
-        self.constant_pool_table.len()
-    }
+    // pub fn add_class(&mut self, name: String) -> usize {
+    //     self.constant_pool_table.push(ConstantPoolItem::String(name));
+    //     self.constant_pool_table.push(ConstantPoolItem::ClassRef(self.constant_pool_table.len() as u16));
+    //     self.constant_pool_table.len()
+    // }
 
-    pub fn add_string(&mut self, name: String) -> usize {
-        self.constant_pool_table.push(ConstantPoolItem::String(name));
-        self.constant_pool_table.len()
-    }
+    // pub fn add_string(&mut self, name: String) -> usize {
+    //     self.constant_pool_table.push(ConstantPoolItem::String(name));
+    //     self.constant_pool_table.len()
+    // }
 
     pub fn write_to_file(&mut self) -> io::Result<()> {
         let mut file = File::create("Main.class").unwrap();
@@ -178,31 +175,33 @@ impl ClassFile {
         file.write_u32::<BigEndian>(self.magic)?;
         file.write_u16::<BigEndian>(self.minor_version)?;
         file.write_u16::<BigEndian>(self.major_version)?;
-        file.write_u16::<BigEndian>(self.constant_pool_table.len() as u16 + 1)?;
+        file.write_u16::<BigEndian>(self.constant_pool.len() as u16 + 1)?;
 
-        for item in &self.constant_pool_table {
-            match item {
-                ConstantPoolItem::String(string) => {
-                    file.write_u8(1)?;
-                    file.write_u16::<BigEndian>(string.as_bytes().len() as u16)?;
-                    file.write_all(string.as_bytes())?;
-                }
-                ConstantPoolItem::ClassRef(index) => {
-                    file.write_u8(7)?;
-                    file.write_u16::<BigEndian>(*index)?;
-                }
-                ConstantPoolItem::NameAndType { name, descriptor } => {
-                    file.write_u8(12)?;
-                    file.write_u16::<BigEndian>(*name)?;
-                    file.write_u16::<BigEndian>(*descriptor)?;
-                }
-                ConstantPoolItem::MethodRef { class_ref, name_and_type } => {
-                    file.write_u8(10)?;
-                    file.write_u16::<BigEndian>(*class_ref)?;
-                    file.write_u16::<BigEndian>(*name_and_type)?;
-                }
-            }
-        }
+        self.constant_pool.write_to_file(&mut file);
+
+        // for item in &self.constant_pool {
+        //     match item {
+        //         ConstantPoolItem::String(string) => {
+        //             file.write_u8(1)?;
+        //             file.write_u16::<BigEndian>(string.as_bytes().len() as u16)?;
+        //             file.write_all(string.as_bytes())?;
+        //         }
+        //         ConstantPoolItem::ClassRef(index) => {
+        //             file.write_u8(7)?;
+        //             file.write_u16::<BigEndian>(*index)?;
+        //         }
+        //         ConstantPoolItem::NameAndType { name, descriptor } => {
+        //             file.write_u8(12)?;
+        //             file.write_u16::<BigEndian>(*name)?;
+        //             file.write_u16::<BigEndian>(*descriptor)?;
+        //         }
+        //         ConstantPoolItem::MethodRef { class_ref, name_and_type } => {
+        //             file.write_u8(10)?;
+        //             file.write_u16::<BigEndian>(*class_ref)?;
+        //             file.write_u16::<BigEndian>(*name_and_type)?;
+        //         }
+        //     }
+        // }
 
         file.write_u16::<BigEndian>(self.access_flags)?;
         file.write_u16::<BigEndian>(self.this_class)?;
@@ -235,117 +234,155 @@ impl ClassFile {
 }
 
 pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
+    // dbg!(&expressions);
+
+    // let expressions = (|| {
+    //     for expr in expressions {
+    //         if let Expression::NamedFunctionDefinition {
+    //             name, parameters, body,
+    //         } = expr.expression {
+    //             if name.label == "main" {
+    //                 if let Expression::Scope(scope) = body.expression {
+    //                     return scope;
+    //                 }
+    //             }
+    //         }
+    //     }
+    //     unreachable!();
+    // })();
+    //
+    // let mut code = Vec::new();
+    //
+    // let mut next: u32 = 0;
+    // let mut variables = HashMap::<String, u32>::new();
+    //
+    // let mut get_var_index = |name: String| {
+    //     *variables.entry(name).or_insert_with(|| {
+    //         let n = next;
+    //         next += 1;
+    //         n
+    //     })
+    // };
+    //
+    // for e in expressions {
+    //     match e.expression {
+    //         Expression::Declaration(label, rhs) => {
+    //             if let Expression::Value(Value::Integer(int)) = rhs.expression {
+    //                 code.push(Bytecode::Bipush(int as u8));
+    //                 code.push(Bytecode::Istore(get_var_index(label.label)));
+    //             }
+    //         }
+    //         _ => {}
+    //     }
+    // }
+    //
+    // code.push(Bytecode::Return);
+    //
+    // dbg!(&code);
+
     let mut class_file = ClassFile::new();
 
-    let n1 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::MethodRef { class_ref: 3, name_and_type: 12 });
-        class_file.constant_pool_table.len()
-    };
-    let n2 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::ClassRef(13));
-        class_file.constant_pool_table.len()
-    };
-    let n3 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::ClassRef(14));
-        class_file.constant_pool_table.len()
-    };
-    let n4 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("<init>".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n5 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("()V".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n6 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("Code".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n7 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("LineNumberTable".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n8 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("main".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n9 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("([Ljava/lang/String;)V".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n10 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("SourceFile".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n11 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("Main.java".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n12 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::NameAndType { name: 4, descriptor: 5 });
-        class_file.constant_pool_table.len()
-    };
-    let n13 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("Main".to_owned()));
-        class_file.constant_pool_table.len()
-    };
-    let n14 = {
-        class_file.constant_pool_table.push(ConstantPoolItem::String("java/lang/Object".to_owned()));
-        class_file.constant_pool_table.len()
-    };
+    class_file.this_class = class_file.constant_pool.add_class("Main".to_string());
+    class_file.super_class = class_file.constant_pool.add_class("java/lang/Object".to_string());
 
-    class_file.this_class = 2;
-    class_file.super_class = 3;
+    // class_file.methods.push(Method {
+    //     access_flags: MethodAccessFlags::Public as u16,
+    //     name_index: class_file.constant_pool.add_utf8("<init>".to_string()),
+    //     descriptor_index: class_file.constant_pool.add_utf8("()V".to_string()),
+    //     attributes: vec![
+    //         CodeAttribute {
+    //             name_index: class_file.constant_pool.add_utf8("Code".to_string()),
+    //             max_stack: 1,
+    //             max_locals: 1,
+    //             code: vec![0x2a, 0xb7, 0x00, class_file.constant_pool.add_method(
+    //                 "java/lang/Object".to_string(),
+    //                 "<init>".to_string(),
+    //                 "()V".to_string()) as u8, 0xb1],
+    //             attributes: vec![
+    //                 LineNumberTableAttribute {
+    //                     name_index: class_file.constant_pool.add_utf8("LineNumberTable".to_string()),
+    //                     items: vec![
+    //                         LineNumberItem { start_pc: 0, line_number: 1 }.into(),
+    //                     ],
+    //                 }.try_into()?
+    //             ],
+    //         }.try_into()?
+    //     ],
+    // });
 
-    class_file.methods.push(Method {
-        access_flags: MethodAccessFlags::Public as u16,
-        name_index: 4,
-        descriptor_index: 5,
-        attributes: vec![
-            CodeAttribute {
-                name_index: 6,
-                max_stack: 1,
-                max_locals: 1,
-                code: vec![0x2a, 0xb7, 0x00, 0x01, 0xb1],
-                attributes: vec![
-                    LineNumberTableAttribute {
-                        name_index: 7,
-                        items: vec![
-                            LineNumberItem { start_pc: 0, line_number: 1 }.into(),
-                        ],
-                    }.try_into()?
-                ],
-            }.try_into()?
-        ],
-    });
+    let mut code = Vec::new();
+    let mut variables = VariableStack::new();
+
+    let expressions = (|| {
+        for expr in expressions {
+            if let Expression::NamedFunctionDefinition {
+                name, parameters, body,
+            } = expr.expression {
+                if name.label == "main" {
+                    if let Expression::Scope(scope) = body.expression {
+                        return scope;
+                    }
+                }
+            }
+        }
+        unreachable!();
+    })();
+
+    for e in expressions {
+        match e.expression {
+            Expression::Declaration(label, rhs) => {
+                if let Expression::Value(Value::Integer(int)) = rhs.expression {
+                    code.push(Bytecode::Bipush(int as u8));
+                    code.push(Bytecode::Istore(variables.get(label.label)));
+                }
+            }
+            _ => {}
+        }
+    }
+    code.push(Bytecode::Return);
+
+    let mut bytes = Vec::new();
+    for bytecode in code {
+        match bytecode {
+            Bytecode::Bipush(byte) => {
+                bytes.push(bytecode.to_machine_code());
+                bytes.push(byte);
+            }
+            Bytecode::Istore(int) => {
+                bytes.push(bytecode.to_machine_code());
+                bytes.push(int);
+            }
+            Bytecode::Return => bytes.push(bytecode.to_machine_code()),
+        }
+    }
 
     class_file.methods.push(Method {
         access_flags: MethodAccessFlags::Public as u16 | MethodAccessFlags::Static as u16,
-        name_index: 8,
-        descriptor_index: 9,
+        name_index: class_file.constant_pool.add_utf8("main".to_string()),
+        descriptor_index: class_file.constant_pool.add_utf8("([Ljava/lang/String;)V".to_string()),
         attributes: vec![
             CodeAttribute {
-                name_index: 6,
+                name_index: class_file.constant_pool.add_utf8("Code".to_string()),
                 max_stack: 1,
                 max_locals: 2,
-                code: vec![0x03, 0x3c, 0xb1],
+                code: bytes,
                 attributes: vec![
-                    LineNumberTableAttribute {
-                        name_index: 7,
-                        items: vec![
-                            LineNumberItem { start_pc: 0, line_number: 3 }.into(),
-                            LineNumberItem { start_pc: 2, line_number: 4 }.into(),
-                        ],
-                    }.try_into()?
+                    // LineNumberTableAttribute {
+                    //     name_index: class_file.constant_pool.add_utf8("LineNumberTable".to_string()),
+                    //     items: vec![
+                    //         LineNumberItem { start_pc: 0, line_number: 3 }.into(),
+                    //         LineNumberItem { start_pc: 2, line_number: 4 }.into(),
+                    //     ],
+                    // }.try_into()?
                 ],
             }.try_into()?
         ],
     });
 
-    class_file.attributes.push(SourceFileAttribute {
-        name_index: 10,
-        sourcefile_index: 11,
-    }.try_into()?);
+    // class_file.attributes.push(SourceFileAttribute {
+    //     name_index: class_file.constant_pool.add_utf8("SourceFile".to_string()),
+    //     sourcefile_index: class_file.constant_pool.add_utf8("Main.java".to_string()),
+    // }.try_into()?);
 
     // class_file.this_class = class_file.add_class("Main".to_owned()) as u16;
     // class_file.super_class = class_file.add_class("java/lang/Object".to_owned()) as u16;
