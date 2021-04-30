@@ -10,22 +10,19 @@ use std::io::Read;
 
 use codespan_reporting::files::SimpleFiles;
 
-use crate::native_functions::create_global_context_with_native_functions;
+use crate::errors::{show_interpreter_error, show_lexer_error, show_parser_error};
 use crate::interpreter::{InterpreterError, InterpreterErrorWithSpan};
 use crate::lexer::{Lexer, LexerError};
+use crate::native_functions::create_global_context_with_native_functions;
 use crate::parser::{Parser, ParserError};
-use crate::errors::{show_lexer_error, show_parser_error, show_interpreter_error};
-use crate::jvm_compiler::to_bytecode;
+use crate::jvm::compiler::to_bytecode;
 
 mod lexer;
 mod parser;
 mod interpreter;
 mod native_functions;
 mod errors;
-mod jvm_compiler;
-mod bytecode;
-mod constant_pool;
-mod variable_stack;
+mod jvm;
 
 fn main() -> Result<(), AllErrors> {
     let mut args = env::args();

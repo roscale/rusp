@@ -15,12 +15,15 @@ pub struct NameAndType(Utf8, Utf8);
 
 pub struct MethodRef(Class, NameAndType);
 
+pub struct FieldRef(Class, NameAndType);
+
 pub enum PoolItem {
     Utf8(Utf8),
     String(JString),
     Class(Class),
     NameAndType(NameAndType),
     MethodRef(MethodRef),
+    FieldRef(FieldRef),
 }
 
 #[derive(Eq, PartialEq, Hash)]
@@ -30,6 +33,7 @@ enum ConstantPoolItem {
     ClassRef(u16),
     NameAndType { name: u16, descriptor: u16 },
     MethodRef { class_ref: u16, name_and_type: u16 },
+    FieldRef { class_ref: u16, name_and_type: u16 },
 }
 
 pub struct ConstantPool {
@@ -88,6 +92,14 @@ impl ConstantPool {
                     name_and_type: index2,
                 })
             }
+            PoolItem::FieldRef(field_ref) => {
+                let index1 = self.add_item(PoolItem::Class(field_ref.0));
+                let index2 = self.add_item(PoolItem::NameAndType(field_ref.1));
+                self.get_or_insert(ConstantPoolItem::FieldRef {
+                    class_ref: index1,
+                    name_and_type: index2,
+                })
+            }
         }
     }
 
@@ -110,12 +122,19 @@ impl ConstantPool {
         )))
     }
 
+    pub fn add_field(&mut self, class: String, field: String, field_type: String) -> u16 {
+        self.add_item(PoolItem::FieldRef(FieldRef(
+            Class(Utf8(class)),
+            NameAndType(Utf8(field), Utf8(field_type)),
+        )))
+    }
+
     pub fn write_to_file(&self, file: &mut File) -> io::Result<()> {
         let mut table = Vec::<&ConstantPoolItem>::new();
         table.resize_with(self.pool.len(), || &ConstantPoolItem::String(0)); // Placeholder value
 
         for (item, &index) in &self.pool {
-            table[index as usize - 1] = item;
+            table[index as usize - 1] = item; // -1 because constant pool indices are 1-indexed
         }
 
         for item in table {
@@ -140,6 +159,11 @@ impl ConstantPool {
                 }
                 &ConstantPoolItem::MethodRef { class_ref, name_and_type } => {
                     file.write_u8(10)?;
+                    file.write_u16::<BigEndian>(class_ref)?;
+                    file.write_u16::<BigEndian>(name_and_type)?;
+                }
+                &ConstantPoolItem::FieldRef { class_ref, name_and_type } => {
+                    file.write_u8(9)?;
                     file.write_u16::<BigEndian>(class_ref)?;
                     file.write_u16::<BigEndian>(name_and_type)?;
                 }
