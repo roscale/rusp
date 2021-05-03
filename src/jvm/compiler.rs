@@ -193,10 +193,78 @@ impl ClassFile {
     }
 }
 
-pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
-    let mut code = Vec::new();
-    let mut variables = VariableStack::new();
+pub struct CodeCompiler {
+    code: Vec<Instruction>,
+    variables: VariableStack,
+}
 
+impl CodeCompiler {
+    pub fn new() -> Self {
+        CodeCompiler {
+            code: vec![],
+            variables: VariableStack::new(),
+        }
+    }
+
+    pub fn compile_expression(&mut self, expression: &Expression) {
+        match expression {
+            Expression::Value(Value::Integer(int)) => {
+                self.code.push(Instruction::Ldc(*int));
+            }
+            Expression::Id(name) => {
+                let index = self.variables.get(name).unwrap();
+                self.code.push(Instruction::Iload(index));
+            }
+            Expression::Declaration(label, rhs) => {
+                self.compile_expression(&rhs.expression);
+                let index = self.variables.create(label.label.clone());
+                self.code.push(Instruction::Istore(index));
+            }
+            Expression::Assignment(label, rsh) => {
+                self.compile_expression(&rsh.expression);
+                let index = self.variables.get(&label.label).unwrap(); // TODO
+                self.code.push(Instruction::Istore(index));
+            }
+            Expression::Sum(terms) => {
+                match terms.split_first() {
+                    None => panic!(), // TODO
+                    Some((first, tail)) => {
+                        self.compile_expression(&first.expression);
+                        for term in tail {
+                            self.compile_expression(&term.expression);
+                            self.code.push(Instruction::Iadd);
+                        }
+                    }
+                }
+            }
+            Expression::FunctionCall(name, arguments) => {
+                let name = match &name.expression {
+                    Expression::Id(name) => name,
+                    _ => panic!(),
+                };
+                if name != "println" {
+                    panic!();
+                }
+                self.code.push(Instruction::Getstatic {
+                    class: "java/lang/System".to_string(),
+                    field: "out".to_string(),
+                    field_type: "Ljava/io/PrintStream;".to_string(),
+                });
+                for argument in arguments {
+                    self.compile_expression(&argument.expression);
+                }
+                self.code.push(Instruction::Invokevirtual {
+                    class: "java/io/PrintStream".to_string(),
+                    method: "println".to_string(),
+                    descriptor: "(I)V".to_string(),
+                });
+            }
+            _ => {}
+        }
+    }
+}
+
+pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
     let expressions = (|| {
         for expr in expressions {
             if let Expression::NamedFunctionDefinition {
@@ -212,37 +280,12 @@ pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
         unreachable!();
     })();
 
+    let mut code_compiler = CodeCompiler::new();
     for e in expressions {
-        match e.expression {
-            Expression::Declaration(label, rhs) => {
-                if let Expression::Value(Value::Integer(int)) = rhs.expression {
-                    code.push(Instruction::Ldc(int));
-                    let index = variables.create(label.label);
-                    code.push(Instruction::Istore(index));
-                }
-            }
-            Expression::Assignment(label, rsh) => {
-                if let Expression::Value(Value::Integer(int)) = rsh.expression {
-                    code.push(Instruction::Ldc(int));
-                    let index = variables.get(&label.label).unwrap(); // TODO
-                    code.push(Instruction::Istore(index));
-                }
-            }
-            _ => {}
-        }
+        code_compiler.compile_expression(&e.expression);
     }
 
-    code.push(Instruction::Getstatic {
-        class: "java/lang/System".to_string(),
-        field: "out".to_string(),
-        field_type: "Ljava/io/PrintStream;".to_string(),
-    });
-    code.push(Instruction::Bipush(42));
-    code.push(Instruction::Invokevirtual {
-        class: "java/io/PrintStream".to_string(),
-        method: "println".to_string(),
-        descriptor: "(I)V".to_string(),
-    });
+    let (mut code, mut variables) = (code_compiler.code, code_compiler.variables);
 
     code.push(Instruction::Return);
 

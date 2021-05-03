@@ -1,6 +1,14 @@
 fn main() {
-    let a = 57
-    let b = 56
+    let a = (+ 1 2)
+    a = (+ a 1)
+    let b = (+ 5 5)
+
+    (println (+ b a))
+    (println 1)
+    // (+ 1 2 3)
+    // let a = 2555
+    // let b = 56
+    // let b = 1234
 }
 
 // fn max (x y) if (> x y) x else y

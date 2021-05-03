@@ -99,6 +99,9 @@ impl ExpressionWithMetadata {
                         .with_span(name.span.clone()))
                 }
             }
+            Expression::Sum(_expressions) => {
+                Ok(Value::Unit) // TODO
+            }
             Expression::Scope(expressions) => {
                 let context = Rc::new(RefCell::new(Context::with_parent(context.clone())));
 

@@ -1,10 +1,10 @@
 use std::collections::HashMap;
+use std::convert::TryInto;
 use std::io::Write;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
 use crate::jvm::constant_pool::ConstantPool;
-use std::convert::TryInto;
 use crate::jvm::variable_stack::VariableStack;
 
 #[derive(Debug)]
@@ -13,6 +13,8 @@ pub enum Instruction {
     Bipush(u8),
     Istore(u8),
     Ldc(i32),
+    Iadd,
+    Iload(u8),
     Getstatic {
         class: String,
         field: String,
@@ -35,6 +37,8 @@ impl Instruction {
             Bipush(_) => 2,
             Istore(_) => 2,
             Ldc(_) => 2,
+            Iadd => 1,
+            Iload(_) => 2,
             Getstatic { .. } => 3,
             IfIcmpne(_) => 3,
             Invokevirtual { .. } => 3,
@@ -73,20 +77,22 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             Instruction::Ldc(integer) => {
                 let index = constant_pool.add_integer(*integer);
                 match index.try_into() {
-                    Ok(byte_index) => bytecode.extend_from_slice(&[18, byte_index]), // ldc
-                    Err(_) => {
-                        // ldc_w
+                    Ok(byte_index) => { // ldc
+                        bytecode.extend_from_slice(&[18, byte_index])
+                    }
+                    Err(_) => { // ldc_w
                         bytecode.push(19);
                         bytecode.write_u16::<BigEndian>(index).unwrap();
                     }
                 }
-            },
+            }
+            Instruction::Iadd => bytecode.push(96),
+            Instruction::Iload(index) => bytecode.extend_from_slice(&[21, *index]),
             Instruction::Getstatic { class, field, field_type } => {
                 let index = constant_pool.add_field(class.clone(), field.clone(), field_type.clone());
                 bytecode.push(178);
                 bytecode.write_u16::<BigEndian>(index).unwrap();
             }
-
             Instruction::IfIcmpne(label) => {
                 bytecode.push(160);
                 let offset = {

@@ -8,7 +8,7 @@ use std::rc::Rc;
 use ParserError::*;
 
 use crate::interpreter::InterpreterErrorWithSpan;
-use crate::lexer::{Keyword, Literal, Token};
+use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
 
 #[derive(Default, Debug)]
@@ -44,6 +44,7 @@ pub enum Expression {
     Value(Value),
     Declaration(Label, Box<ExpressionWithMetadata>),
     Assignment(Label, Box<ExpressionWithMetadata>),
+    Sum(Vec<ExpressionWithMetadata>),
     Scope(Vec<ExpressionWithMetadata>),
     NamedFunctionDefinition {
         name: Label,
@@ -164,7 +165,7 @@ impl<'a> Parser<'a> {
                 self.advance_by(1);
                 Expression::Value(Value::Boolean(false))
             }
-            // [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
+            [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
@@ -178,6 +179,37 @@ impl<'a> Parser<'a> {
             expression,
             span: start_index..self.utf8_end_index,
         })
+    }
+
+    pub fn parse_operation(&mut self) -> Result<Expression, ParserError> {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::LeftParenthesis => (),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        }
+        self.advance_by(1);
+
+        let operator = self.tokens.first().ok_or(UnexpectedEOF)?;
+        self.advance_by(1);
+
+        let mut arguments = Vec::new();
+        loop {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
+                Token::RightParenthesis => {
+                    self.advance_by(1);
+                    break;
+                }
+                _ => {
+                    arguments.push(self.parse_expression()?)
+                }
+            }
+        }
+
+        match operator {
+            Token::Operator(Operator::Plus) => {
+                Ok(Expression::Sum(arguments))
+            }
+            _ => panic!(), // TODO
+        }
     }
 
     pub fn parse_function(&mut self) -> Result<Expression, ParserError> {
