@@ -4,13 +4,15 @@ use std::io::Write;
 use byteorder::{BigEndian, WriteBytesExt};
 
 use crate::jvm::constant_pool::ConstantPool;
+use std::convert::TryInto;
+use crate::jvm::variable_stack::VariableStack;
 
 #[derive(Debug)]
 pub enum Instruction {
     Label(String),
     Bipush(u8),
     Istore(u8),
-    Ldc(u8),
+    Ldc(i32),
     Getstatic {
         class: String,
         field: String,
@@ -60,38 +62,48 @@ fn scan_for_labels(code: &Vec<Instruction>) -> HashMap<&str, usize> {
 pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut ConstantPool) -> Vec<u8> {
     let labels = scan_for_labels(code);
 
-    let mut final_instructions = Vec::new();
+    let mut bytecode = Vec::new();
 
     let mut i = 0;
     for instruction in code {
         match instruction {
             Instruction::Label(_) => {}
-            Instruction::Bipush(byte) => final_instructions.extend_from_slice(&[16, *byte]),
-            Instruction::Istore(int) => final_instructions.extend_from_slice(&[54, *int]),
-            Instruction::Ldc(index) => final_instructions.extend_from_slice(&[18, *index]),
+            Instruction::Bipush(byte) => bytecode.extend_from_slice(&[16, *byte]),
+            Instruction::Istore(index) => bytecode.extend_from_slice(&[54, *index]),
+            Instruction::Ldc(integer) => {
+                let index = constant_pool.add_integer(*integer);
+                match index.try_into() {
+                    Ok(byte_index) => bytecode.extend_from_slice(&[18, byte_index]), // ldc
+                    Err(_) => {
+                        // ldc_w
+                        bytecode.push(19);
+                        bytecode.write_u16::<BigEndian>(index).unwrap();
+                    }
+                }
+            },
             Instruction::Getstatic { class, field, field_type } => {
                 let index = constant_pool.add_field(class.clone(), field.clone(), field_type.clone());
-                final_instructions.push(178);
-                final_instructions.write_u16::<BigEndian>(index).unwrap();
+                bytecode.push(178);
+                bytecode.write_u16::<BigEndian>(index).unwrap();
             }
 
             Instruction::IfIcmpne(label) => {
-                final_instructions.push(160);
+                bytecode.push(160);
                 let offset = {
                     let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;
                     (target - here) as i16
                 };
-                final_instructions.write_i16::<BigEndian>(offset).unwrap();
+                bytecode.write_i16::<BigEndian>(offset).unwrap();
             }
             Instruction::Invokevirtual { class, method, descriptor } => {
                 let index = constant_pool.add_method(class.clone(), method.clone(), descriptor.clone());
-                final_instructions.push(182);
-                final_instructions.write_u16::<BigEndian>(index).unwrap();
+                bytecode.push(182);
+                bytecode.write_u16::<BigEndian>(index).unwrap();
             }
-            Instruction::Return => final_instructions.extend_from_slice(&[177]),
+            Instruction::Return => bytecode.extend_from_slice(&[177]),
         };
         i += instruction.len();
     }
-    final_instructions
+    bytecode
 }

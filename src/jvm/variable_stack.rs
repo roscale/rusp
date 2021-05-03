@@ -13,15 +13,14 @@ impl VariableStack {
         }
     }
 
-    pub fn get(&mut self, name: String) -> u8 {
-        match self.indices.get(&name) {
-            Some(&index) => index,
-            None => {
-                let index = self.next_index;
-                self.indices.insert(name, index);
-                self.next_index += 1;
-                index
-            }
-        }
+    pub fn get(&mut self, name: &String) -> Option<u8> {
+        self.indices.get(name).cloned()
+    }
+
+    pub fn create(&mut self, name: String) -> u8 {
+        let index = self.next_index;
+        self.indices.insert(name, index);
+        self.next_index += 1;
+        index
     }
 }

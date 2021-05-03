@@ -216,8 +216,16 @@ pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
         match e.expression {
             Expression::Declaration(label, rhs) => {
                 if let Expression::Value(Value::Integer(int)) = rhs.expression {
-                    code.push(Instruction::Bipush(int as u8));
-                    code.push(Instruction::Istore(variables.get(label.label)));
+                    code.push(Instruction::Ldc(int));
+                    let index = variables.create(label.label);
+                    code.push(Instruction::Istore(index));
+                }
+            }
+            Expression::Assignment(label, rsh) => {
+                if let Expression::Value(Value::Integer(int)) = rsh.expression {
+                    code.push(Instruction::Ldc(int));
+                    let index = variables.get(&label.label).unwrap(); // TODO
+                    code.push(Instruction::Istore(index));
                 }
             }
             _ => {}

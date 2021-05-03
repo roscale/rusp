@@ -11,6 +11,8 @@ pub struct JString(Utf8);
 
 pub struct Class(Utf8);
 
+pub struct Integer(i32);
+
 pub struct NameAndType(Utf8, Utf8);
 
 pub struct MethodRef(Class, NameAndType);
@@ -20,6 +22,7 @@ pub struct FieldRef(Class, NameAndType);
 pub enum PoolItem {
     Utf8(Utf8),
     String(JString),
+    Integer(Integer),
     Class(Class),
     NameAndType(NameAndType),
     MethodRef(MethodRef),
@@ -30,6 +33,7 @@ pub enum PoolItem {
 enum ConstantPoolItem {
     Utf8(String),
     String(u16),
+    Integer(i32),
     ClassRef(u16),
     NameAndType { name: u16, descriptor: u16 },
     MethodRef { class_ref: u16, name_and_type: u16 },
@@ -72,6 +76,7 @@ impl ConstantPool {
                 let index = self.add_item(PoolItem::Utf8(string.0));
                 self.get_or_insert(ConstantPoolItem::String(index))
             }
+            PoolItem::Integer(integer) => self.get_or_insert(ConstantPoolItem::Integer(integer.0)),
             PoolItem::Class(class) => {
                 let index = self.add_item(PoolItem::Utf8(class.0));
                 self.get_or_insert(ConstantPoolItem::ClassRef(index))
@@ -111,6 +116,10 @@ impl ConstantPool {
         self.add_item(PoolItem::String(JString(Utf8(string))))
     }
 
+    pub fn add_integer(&mut self, integer: i32) -> u16 {
+        self.add_item(PoolItem::Integer(Integer(integer)))
+    }
+
     pub fn add_class(&mut self, class: String) -> u16 {
         self.add_item(PoolItem::Class(Class(Utf8(class))))
     }
@@ -147,6 +156,10 @@ impl ConstantPool {
                 &ConstantPoolItem::String(index) => {
                     file.write_u8(8)?;
                     file.write_u16::<BigEndian>(index)?;
+                }
+                &ConstantPoolItem::Integer(integer) => {
+                    file.write_u8(3)?;
+                    file.write_i32::<BigEndian>(integer)?;
                 }
                 &ConstantPoolItem::ClassRef(index) => {
                     file.write_u8(7)?;
