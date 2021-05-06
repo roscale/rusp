@@ -1,11 +1,29 @@
 fn main() {
-    let i = 0
-    while (!= i 10) {
-        let j = 0
-        while (!= j i) {
-            (println j)
-            j = (+ j 1)
-        }
-        i = (+ i 1)
+    let a = 4
+    let t = if (== a 4) {
+        (println 99)
+        1
+    } else {
+        (println 12)
+        0
     }
+    (println t)
+    // if (== a 4) {
+    //     (println 99)
+    //     (println 99)
+    // } else {
+    //     (println 12)
+    //     (println 12)
+    //     (println 12)
+    // }
+    // (println 42)
+    // let i = 0
+    // while (!= i 10) {
+    //     let j = 0
+    //     while (!= j i) {
+    //         (println j)
+    //         j = (+ j 1)
+    //     }
+    //     i = (+ i 1)
+    // }
 }

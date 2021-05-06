@@ -281,6 +281,17 @@ impl CodeCompiler {
                 self.compile_expression(&base_case.expression);
                 self.code.push(Instruction::Label(out_label));
             }
+            Expression::IfElse { guard, base_case, else_case } => {
+                let else_label = self.get_new_label();
+                let out_label = self.get_new_label();
+                self.compile_expression(&guard.expression);
+                self.code.push(Instruction::Ifeq(else_label));
+                self.compile_expression(&base_case.expression);
+                self.code.push(Instruction::Goto(out_label));
+                self.code.push(Instruction::Label(else_label));
+                self.compile_expression(&else_case.expression);
+                self.code.push(Instruction::Label(out_label));
+            }
             Expression::While { guard, body } => {
                 let guard_label = self.get_new_label();
                 let out_label = self.get_new_label();
