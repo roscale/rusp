@@ -7,10 +7,12 @@ use byteorder::{BigEndian, WriteBytesExt};
 use crate::jvm::constant_pool::ConstantPool;
 use crate::jvm::variable_stack::VariableStack;
 
+pub type Label = u64;
+
 #[derive(Debug)]
 pub enum Instruction {
-    Label(String),
-    Goto(String),
+    Label(Label),
+    Goto(Label),
     Bipush(u8),
     Istore(u8),
     Ldc(i32),
@@ -21,9 +23,9 @@ pub enum Instruction {
         field: String,
         field_type: String,
     },
-    IfIcmpne(String),
-    Ifne(String),
-    Ifeq(String),
+    IfIcmpne(Label),
+    Ifne(Label),
+    Ifeq(Label),
     Invokevirtual {
         class: String,
         method: String,
@@ -53,13 +55,13 @@ impl Instruction {
     }
 }
 
-fn scan_for_labels(code: &Vec<Instruction>) -> HashMap<&str, usize> {
+fn scan_for_labels(code: &Vec<Instruction>) -> HashMap<Label, usize> {
     let mut labels = HashMap::new();
     let mut i = 0;
     for instruction in code {
         match instruction {
             Instruction::Label(label) => {
-                labels.insert(label.as_str(), i);
+                labels.insert(*label, i);
             }
             _ => {
                 i += instruction.len()
@@ -81,7 +83,7 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             Instruction::Goto(label) => {
                 bytecode.push(167);
                 let offset = {
-                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let target = *labels.get(label).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;
                     (target - here) as i16
                 };
@@ -111,7 +113,7 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             Instruction::IfIcmpne(label) => {
                 bytecode.push(160);
                 let offset = {
-                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let target = *labels.get(label).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;
                     (target - here) as i16
                 };
@@ -120,7 +122,7 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             Instruction::Ifne(label) => {
                 bytecode.push(154);
                 let offset = {
-                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let target = *labels.get(label).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;
                     (target - here) as i16
                 };
@@ -129,7 +131,7 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             Instruction::Ifeq(label) => {
                 bytecode.push(153);
                 let offset = {
-                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let target = *labels.get(label).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;
                     (target - here) as i16
                 };

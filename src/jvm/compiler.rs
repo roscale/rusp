@@ -6,7 +6,7 @@ use std::io::Write;
 
 use byteorder::{BigEndian, WriteBytesExt};
 
-use crate::jvm::bytecode::{compile_instructions, Instruction};
+use crate::jvm::bytecode::{compile_instructions, Instruction, Label};
 use crate::jvm::constant_pool::ConstantPool;
 use crate::jvm::structs::{Class, Method};
 use crate::jvm::variable_stack::VariableStack;
@@ -197,6 +197,7 @@ impl ClassFile {
 pub struct CodeCompiler {
     code: Vec<Instruction>,
     variables: VariableStack,
+    next_available_label: Label,
 }
 
 impl CodeCompiler {
@@ -204,7 +205,14 @@ impl CodeCompiler {
         CodeCompiler {
             code: vec![],
             variables: VariableStack::new(),
+            next_available_label: 0,
         }
+    }
+
+    fn get_new_label(&mut self) -> Label {
+        let label = self.next_available_label;
+        self.next_available_label += 1;
+        label
     }
 
     pub fn compile_expression(&mut self, expression: &Expression) {
@@ -242,23 +250,46 @@ impl CodeCompiler {
                             match operator {
                                 Operator::Plus => self.code.push(Instruction::Iadd),
                                 Operator::Equality => {
-                                    self.code.push(Instruction::IfIcmpne("false_0".to_string()));
+                                    let false_label = self.get_new_label();
+                                    let out_label = self.get_new_label();
+                                    self.code.push(Instruction::IfIcmpne(false_label));
                                     self.code.push(Instruction::Ldc(1));
-                                    self.code.push(Instruction::Goto("continue_0".to_string()));
-                                    self.code.push(Instruction::Label("false_0".to_string()));
+                                    self.code.push(Instruction::Goto(out_label));
+                                    self.code.push(Instruction::Label(false_label));
                                     self.code.push(Instruction::Ldc(0));
-                                    self.code.push(Instruction::Label("continue_0".to_string()));
-                                },
+                                    self.code.push(Instruction::Label(out_label));
+                                }
+                                Operator::Inequality => {
+                                    let false_label = self.get_new_label();
+                                    let out_label = self.get_new_label();
+                                    self.code.push(Instruction::IfIcmpne(false_label));
+                                    self.code.push(Instruction::Ldc(0));
+                                    self.code.push(Instruction::Goto(out_label));
+                                    self.code.push(Instruction::Label(false_label));
+                                    self.code.push(Instruction::Ldc(1));
+                                    self.code.push(Instruction::Label(out_label));
+                                }
                             }
                         }
                     }
                 }
             }
             Expression::If { guard, base_case } => {
+                let out_label = self.get_new_label();
                 self.compile_expression(&guard.expression);
-                self.code.push(Instruction::Ifeq("false_1".to_string()));
+                self.code.push(Instruction::Ifeq(out_label));
                 self.compile_expression(&base_case.expression);
-                self.code.push(Instruction::Label("false_1".to_string()));
+                self.code.push(Instruction::Label(out_label));
+            }
+            Expression::While { guard, body } => {
+                let guard_label = self.get_new_label();
+                let out_label = self.get_new_label();
+                self.code.push(Instruction::Label(guard_label));
+                self.compile_expression(&guard.expression);
+                self.code.push(Instruction::Ifeq(out_label));
+                self.compile_expression(&body.expression);
+                self.code.push(Instruction::Goto(guard_label));
+                self.code.push(Instruction::Label(out_label));
             }
             Expression::FunctionCall(name, arguments) => {
                 let name = match &name.expression {

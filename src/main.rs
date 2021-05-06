@@ -1,4 +1,3 @@
-#![feature(or_patterns)]
 #![feature(box_patterns)]
 #![feature(try_blocks)]
 #![feature(exact_size_is_empty)]

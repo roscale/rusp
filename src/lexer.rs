@@ -27,6 +27,7 @@ pub enum Token {
 pub enum Operator {
     Plus,
     Equality,
+    Inequality,
 }
 
 #[derive(Debug, Clone)]
@@ -155,6 +156,7 @@ impl<'a> Lexer<'a> {
     fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
         let token = match self.chars {
             ['=', '=', ..] => Some((2, Token::Operator(Operator::Equality))),
+            ['!', '=', ..] => Some((2, Token::Operator(Operator::Inequality))),
             ['=', ..] => Some((1, Token::Equal)),
             ['+', ..] => Some((1, Token::Operator(Operator::Plus))),
             ['(', ..] => Some((1, Token::LeftParenthesis)),
@@ -262,7 +264,7 @@ impl<'a> Lexer<'a> {
 
 fn is_valid_identifier_character(c: char) -> bool {
     match c {
-        '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => false,
+        '!' | '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => false,
         c if c.is_whitespace() => false,
         _ => true,
     }
@@ -270,7 +272,7 @@ fn is_valid_identifier_character(c: char) -> bool {
 
 fn is_punctuation(c: char) -> bool {
     match c {
-        '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => true,
+        '!' | '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => true,
         _ => false,
     }
 }
