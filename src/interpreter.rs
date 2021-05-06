@@ -99,7 +99,7 @@ impl ExpressionWithMetadata {
                         .with_span(name.span.clone()))
                 }
             }
-            Expression::Sum(_expressions) => {
+            Expression::Operation(..) => {
                 Ok(Value::Unit) // TODO
             }
             Expression::Scope(expressions) => {

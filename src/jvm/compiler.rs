@@ -10,6 +10,7 @@ use crate::jvm::bytecode::{compile_instructions, Instruction};
 use crate::jvm::constant_pool::ConstantPool;
 use crate::jvm::structs::{Class, Method};
 use crate::jvm::variable_stack::VariableStack;
+use crate::lexer::Operator;
 use crate::parser::{Expression, ExpressionWithMetadata, Value};
 
 pub struct ClassFile {
@@ -215,6 +216,12 @@ impl CodeCompiler {
                 let index = self.variables.get(name).unwrap();
                 self.code.push(Instruction::Iload(index));
             }
+            Expression::Scope(expressions) => {
+                // TODO: implement shadowing and drop
+                for e in expressions {
+                    self.compile_expression(&e.expression);
+                }
+            }
             Expression::Declaration(label, rhs) => {
                 self.compile_expression(&rhs.expression);
                 let index = self.variables.create(label.label.clone());
@@ -225,17 +232,33 @@ impl CodeCompiler {
                 let index = self.variables.get(&label.label).unwrap(); // TODO
                 self.code.push(Instruction::Istore(index));
             }
-            Expression::Sum(terms) => {
+            Expression::Operation(operator, terms) => {
                 match terms.split_first() {
                     None => panic!(), // TODO
                     Some((first, tail)) => {
                         self.compile_expression(&first.expression);
                         for term in tail {
                             self.compile_expression(&term.expression);
-                            self.code.push(Instruction::Iadd);
+                            match operator {
+                                Operator::Plus => self.code.push(Instruction::Iadd),
+                                Operator::Equality => {
+                                    self.code.push(Instruction::IfIcmpne("false_0".to_string()));
+                                    self.code.push(Instruction::Ldc(1));
+                                    self.code.push(Instruction::Goto("continue_0".to_string()));
+                                    self.code.push(Instruction::Label("false_0".to_string()));
+                                    self.code.push(Instruction::Ldc(0));
+                                    self.code.push(Instruction::Label("continue_0".to_string()));
+                                },
+                            }
                         }
                     }
                 }
+            }
+            Expression::If { guard, base_case } => {
+                self.compile_expression(&guard.expression);
+                self.code.push(Instruction::Ifeq("false_1".to_string()));
+                self.compile_expression(&base_case.expression);
+                self.code.push(Instruction::Label("false_1".to_string()));
             }
             Expression::FunctionCall(name, arguments) => {
                 let name = match &name.expression {

@@ -10,6 +10,7 @@ use crate::jvm::variable_stack::VariableStack;
 #[derive(Debug)]
 pub enum Instruction {
     Label(String),
+    Goto(String),
     Bipush(u8),
     Istore(u8),
     Ldc(i32),
@@ -21,6 +22,8 @@ pub enum Instruction {
         field_type: String,
     },
     IfIcmpne(String),
+    Ifne(String),
+    Ifeq(String),
     Invokevirtual {
         class: String,
         method: String,
@@ -34,6 +37,7 @@ impl Instruction {
         use Instruction::*;
         match self {
             Label(_) => 0,
+            Goto(_) => 3,
             Bipush(_) => 2,
             Istore(_) => 2,
             Ldc(_) => 2,
@@ -41,6 +45,8 @@ impl Instruction {
             Iload(_) => 2,
             Getstatic { .. } => 3,
             IfIcmpne(_) => 3,
+            Ifne(_) => 3,
+            Ifeq(_) => 3,
             Invokevirtual { .. } => 3,
             Return => 1,
         }
@@ -72,6 +78,15 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
     for instruction in code {
         match instruction {
             Instruction::Label(_) => {}
+            Instruction::Goto(label) => {
+                bytecode.push(167);
+                let offset = {
+                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let here = i as isize;
+                    (target - here) as i16
+                };
+                bytecode.write_i16::<BigEndian>(offset).unwrap();
+            }
             Instruction::Bipush(byte) => bytecode.extend_from_slice(&[16, *byte]),
             Instruction::Istore(index) => bytecode.extend_from_slice(&[54, *index]),
             Instruction::Ldc(integer) => {
@@ -95,6 +110,24 @@ pub fn compile_instructions(code: &Vec<Instruction>, constant_pool: &mut Constan
             }
             Instruction::IfIcmpne(label) => {
                 bytecode.push(160);
+                let offset = {
+                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let here = i as isize;
+                    (target - here) as i16
+                };
+                bytecode.write_i16::<BigEndian>(offset).unwrap();
+            }
+            Instruction::Ifne(label) => {
+                bytecode.push(154);
+                let offset = {
+                    let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
+                    let here = i as isize;
+                    (target - here) as i16
+                };
+                bytecode.write_i16::<BigEndian>(offset).unwrap();
+            }
+            Instruction::Ifeq(label) => {
+                bytecode.push(153);
                 let offset = {
                     let target = *labels.get(label.as_str()).expect(&format!("Label \"{}\" does not exist!", label)) as isize;
                     let here = i as isize;

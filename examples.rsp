@@ -1,10 +1,16 @@
 fn main() {
-    let a = (+ 1 2)
-    a = (+ a 1)
-    let b = (+ 5 5)
-
-    (println (+ b a))
-    (println 1)
+    let a = (+ 1 2 3)
+    a = (+ a a)
+    if (== (+ 1 20 21) 42) {
+        (println a)
+    }
+    (println 69)
+    // let a = (+ 1 2)
+    // a = (+ a 1)
+    // let b = (+ 5 5)
+    //
+    // (println (+ b a))
+    // (println 1)
     // (+ 1 2 3)
     // let a = 2555
     // let b = 56

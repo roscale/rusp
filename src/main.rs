@@ -26,13 +26,13 @@ mod jvm;
 
 fn main() -> Result<(), AllErrors> {
     let mut args = env::args();
-    let path = args.next().unwrap();
+    let program_path = args.next().unwrap();
 
     let script_path = match args.next() {
         Some(path) => path,
         None => {
             println!("TODO: REPL");
-            println!("Usage: {} <file>", path);
+            println!("Usage: {} <file>", program_path);
             return Ok(());
         }
     };
@@ -52,7 +52,6 @@ fn main() -> Result<(), AllErrors> {
         }
         source
     };
-
 
     let mut files = SimpleFiles::new();
     let source_file = files.add(script_path, &source);

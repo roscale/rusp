@@ -44,7 +44,7 @@ pub enum Expression {
     Value(Value),
     Declaration(Label, Box<ExpressionWithMetadata>),
     Assignment(Label, Box<ExpressionWithMetadata>),
-    Sum(Vec<ExpressionWithMetadata>),
+    Operation(Operator, Vec<ExpressionWithMetadata>),
     Scope(Vec<ExpressionWithMetadata>),
     NamedFunctionDefinition {
         name: Label,
@@ -205,8 +205,8 @@ impl<'a> Parser<'a> {
         }
 
         match operator {
-            Token::Operator(Operator::Plus) => {
-                Ok(Expression::Sum(arguments))
+            Token::Operator(op) => {
+                Ok(Expression::Operation(op.clone(), arguments))
             }
             _ => panic!(), // TODO
         }

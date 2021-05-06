@@ -26,6 +26,7 @@ pub enum Token {
 #[derive(Debug, Clone)]
 pub enum Operator {
     Plus,
+    Equality,
 }
 
 #[derive(Debug, Clone)]
@@ -54,7 +55,7 @@ pub enum LexerError {
 
 pub struct Lexer<'a> {
     chars: &'a [char],
-    utf8_index: usize,
+    char_index: usize,
     tokens: Vec<Token>,
     indices: Vec<Range<usize>>,
 }
@@ -63,7 +64,7 @@ impl<'a> Lexer<'a> {
     pub fn new(chars: &'a [char]) -> Self {
         Self {
             chars,
-            utf8_index: 0,
+            char_index: 0,
             tokens: vec![],
             indices: vec![],
         }
@@ -71,7 +72,7 @@ impl<'a> Lexer<'a> {
 
     pub fn advance_by(&mut self, n: usize) {
         for char in &self.chars[..n] {
-            self.utf8_index += char.len_utf8();
+            self.char_index += char.len_utf8();
         }
         self.chars = &self.chars[n..];
     }
@@ -95,7 +96,7 @@ impl<'a> Lexer<'a> {
                 ['=', c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
                 [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
-                [e, ..] => return Err(LexerError::UnexpectedCharacter(self.utf8_index..self.utf8_index + e.len_utf8())),
+                [e, ..] => return Err(LexerError::UnexpectedCharacter(self.char_index..self.char_index + e.len_utf8())),
                 [] => break,
             }
         }
@@ -103,7 +104,7 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_keywords_and_identifiers(&mut self) -> Result<(), LexerError> {
-        let start_index = self.utf8_index;
+        let start_index = self.char_index;
         let start = self.chars;
         let mut i = 0;
 
@@ -133,13 +134,13 @@ impl<'a> Lexer<'a> {
             match self.chars {
                 [c, ..] if !is_valid_identifier_character(*c) => {
                     if let Some(token) = end_token(i) {
-                        self.add_token(token, start_index..self.utf8_index)
+                        self.add_token(token, start_index..self.char_index)
                     }
                     break Ok(());
                 }
                 [] => {
                     if let Some(token) = end_token(i) {
-                        self.add_token(token, start_index..self.utf8_index)
+                        self.add_token(token, start_index..self.char_index)
                     }
                     break Ok(());
                 }
@@ -153,6 +154,7 @@ impl<'a> Lexer<'a> {
 
     fn process_operators_and_punctuation(&mut self) -> Result<(), LexerError> {
         let token = match self.chars {
+            ['=', '=', ..] => Some((2, Token::Operator(Operator::Equality))),
             ['=', ..] => Some((1, Token::Equal)),
             ['+', ..] => Some((1, Token::Operator(Operator::Plus))),
             ['(', ..] => Some((1, Token::LeftParenthesis)),
@@ -164,15 +166,15 @@ impl<'a> Lexer<'a> {
             _ => None,
         };
         if let Some((n, token)) = token {
-            let start_index = self.utf8_index;
+            let start_index = self.char_index;
             self.advance_by(n);
-            self.add_token(token, start_index..self.utf8_index)
+            self.add_token(token, start_index..self.char_index)
         }
         Ok(())
     }
 
     fn process_string_literals(&mut self) -> Result<(), LexerError> {
-        let start_index = self.utf8_index;
+        let start_index = self.char_index;
 
         self.advance_by(1); // Eat first quote
         let string_start = self.chars;
@@ -188,7 +190,7 @@ impl<'a> Lexer<'a> {
                     self.advance_by(1); // Eat last quote
 
                     let token = Token::Literal(Literal::String(string));
-                    self.add_token(token, start_index..self.utf8_index);
+                    self.add_token(token, start_index..self.char_index);
 
                     break Ok(());
                 }
@@ -202,32 +204,32 @@ impl<'a> Lexer<'a> {
     }
 
     fn process_numeric_literals(&mut self) -> Result<(), LexerError> {
-        let start_index = self.utf8_index;
+        let start_index = self.char_index;
         let start = self.chars;
         let mut i = 0;
         let mut is_float = false;
 
-        let mut is_sign_allowed = true;
-        let mut is_point_allowed = true;
+        let mut is_sign_allowed_anymore = true;
+        let mut is_decimal_point_allowed_anymore = true;
 
         loop {
             match self.chars {
-                ['+' | '-', ..] if is_sign_allowed => {
-                    is_sign_allowed = false;
+                ['+' | '-', ..] if is_sign_allowed_anymore => {
+                    is_sign_allowed_anymore = false;
 
                     self.advance_by(1);
                     i += 1;
                 }
-                ['.', ..] if is_point_allowed => {
-                    is_point_allowed = false;
-                    is_sign_allowed = false;
+                ['.', ..] if is_decimal_point_allowed_anymore => {
+                    is_decimal_point_allowed_anymore = false;
+                    is_sign_allowed_anymore = false;
                     is_float = true;
 
                     self.advance_by(1);
                     i += 1;
                 }
                 [d, ..] if d.is_ascii_digit() => {
-                    is_sign_allowed = false;
+                    is_sign_allowed_anymore = false;
 
                     self.advance_by(1);
                     i += 1;
@@ -241,7 +243,7 @@ impl<'a> Lexer<'a> {
                         let integer = number.parse::<i32>().unwrap();
                         Token::Literal(Literal::Integer(integer))
                     };
-                    self.add_token(token, start_index..self.utf8_index);
+                    self.add_token(token, start_index..self.char_index);
                     break Ok(());
                 }
             }
@@ -260,7 +262,7 @@ impl<'a> Lexer<'a> {
 
 fn is_valid_identifier_character(c: char) -> bool {
     match c {
-        '+' | '(' | ')' | '[' | ']' | '{' | '}' => false,
+        '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => false,
         c if c.is_whitespace() => false,
         _ => true,
     }
