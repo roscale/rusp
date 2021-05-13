@@ -1,6 +1,8 @@
 use crate::jvm::bytecode::Instruction;
 use crate::jvm::compiler::ClassAccessFlags;
 use crate::jvm::compiler::MethodAccessFlags;
+use crate::jvm::label_generator::LabelGenerator;
+use crate::jvm::pseudo_instruction::PseudoInstruction;
 
 pub struct Class {
     pub name: String,
@@ -22,7 +24,8 @@ pub struct Method {
     pub name: String,
     pub signature: String,
     pub access_flags: u16,
-    pub code: Vec<Instruction>,
+    pub label_generator: LabelGenerator,
+    pub code: Vec<PseudoInstruction>,
 }
 
 impl Default for Method {
@@ -31,6 +34,7 @@ impl Default for Method {
             name: "Method".to_string(),
             signature: "".to_string(),
             access_flags: MethodAccessFlags::Public as u16 | MethodAccessFlags::Static as u16,
+            label_generator: LabelGenerator::new(),
             code: vec![],
         }
     }

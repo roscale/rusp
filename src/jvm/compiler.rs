@@ -8,6 +8,9 @@ use byteorder::{BigEndian, WriteBytesExt};
 
 use crate::jvm::bytecode::{compile_instructions, Instruction, Label};
 use crate::jvm::constant_pool::ConstantPool;
+use crate::jvm::jvm_type::PushLiteral;
+use crate::jvm::label_generator::LabelGenerator;
+use crate::jvm::pseudo_instruction::{compile_to_jvm_instructions, PseudoInstruction};
 use crate::jvm::structs::{Class, Method};
 use crate::jvm::variable_stack::VariableStack;
 use crate::lexer::Operator;
@@ -195,9 +198,9 @@ impl ClassFile {
 }
 
 pub struct CodeCompiler {
-    code: Vec<Instruction>,
+    code: Vec<PseudoInstruction>,
     variables: VariableStack,
-    next_available_label: Label,
+    label_generator: LabelGenerator,
 }
 
 impl CodeCompiler {
@@ -205,24 +208,20 @@ impl CodeCompiler {
         CodeCompiler {
             code: vec![],
             variables: VariableStack::new(),
-            next_available_label: 0,
+            label_generator: LabelGenerator::new(),
         }
-    }
-
-    fn get_new_label(&mut self) -> Label {
-        let label = self.next_available_label;
-        self.next_available_label += 1;
-        label
     }
 
     pub fn compile_expression(&mut self, expression: &Expression) {
         match expression {
             Expression::Value(Value::Integer(int)) => {
-                self.code.push(Instruction::Ldc(*int));
+                self.code.push(PseudoInstruction::Push(PushLiteral::Int(*int)));
+            }
+            Expression::Value(Value::String(string)) => {
+                self.code.push(PseudoInstruction::Push(PushLiteral::String(string.clone())));
             }
             Expression::Id(name) => {
-                let index = self.variables.get(name).unwrap();
-                self.code.push(Instruction::Iload(index));
+                self.code.push(PseudoInstruction::Load(name.clone()));
             }
             Expression::Scope(expressions) => {
                 // TODO: implement shadowing and drop
@@ -232,13 +231,11 @@ impl CodeCompiler {
             }
             Expression::Declaration(label, rhs) => {
                 self.compile_expression(&rhs.expression);
-                let index = self.variables.create(label.label.clone());
-                self.code.push(Instruction::Istore(index));
+                self.code.push(PseudoInstruction::Store(label.label.clone(), true));
             }
             Expression::Assignment(label, rsh) => {
                 self.compile_expression(&rsh.expression);
-                let index = self.variables.get(&label.label).unwrap(); // TODO
-                self.code.push(Instruction::Istore(index));
+                self.code.push(PseudoInstruction::Store(label.label.clone(), false));
             }
             Expression::Operation(operator, terms) => {
                 match terms.split_first() {
@@ -248,59 +245,41 @@ impl CodeCompiler {
                         for term in tail {
                             self.compile_expression(&term.expression);
                             match operator {
-                                Operator::Plus => self.code.push(Instruction::Iadd),
-                                Operator::Equality => {
-                                    let false_label = self.get_new_label();
-                                    let out_label = self.get_new_label();
-                                    self.code.push(Instruction::IfIcmpne(false_label));
-                                    self.code.push(Instruction::Ldc(1));
-                                    self.code.push(Instruction::Goto(out_label));
-                                    self.code.push(Instruction::Label(false_label));
-                                    self.code.push(Instruction::Ldc(0));
-                                    self.code.push(Instruction::Label(out_label));
-                                }
-                                Operator::Inequality => {
-                                    let false_label = self.get_new_label();
-                                    let out_label = self.get_new_label();
-                                    self.code.push(Instruction::IfIcmpne(false_label));
-                                    self.code.push(Instruction::Ldc(0));
-                                    self.code.push(Instruction::Goto(out_label));
-                                    self.code.push(Instruction::Label(false_label));
-                                    self.code.push(Instruction::Ldc(1));
-                                    self.code.push(Instruction::Label(out_label));
-                                }
+                                Operator::Plus => self.code.push(PseudoInstruction::Add),
+                                Operator::Equality => self.code.push(PseudoInstruction::Cmpeq),
+                                Operator::Inequality => self.code.push(PseudoInstruction::Cmpne),
                             }
                         }
                     }
                 }
             }
             Expression::If { guard, base_case } => {
-                let out_label = self.get_new_label();
+                let out_label = self.label_generator.get_new_label();
                 self.compile_expression(&guard.expression);
-                self.code.push(Instruction::Ifeq(out_label));
+                self.code.push(PseudoInstruction::Ifeq(out_label));
                 self.compile_expression(&base_case.expression);
-                self.code.push(Instruction::Label(out_label));
+                self.code.push(PseudoInstruction::Label(out_label));
             }
             Expression::IfElse { guard, base_case, else_case } => {
-                let else_label = self.get_new_label();
-                let out_label = self.get_new_label();
+                let else_label = self.label_generator.get_new_label();
+                let out_label = self.label_generator.get_new_label();
                 self.compile_expression(&guard.expression);
-                self.code.push(Instruction::Ifeq(else_label));
+                self.code.push(PseudoInstruction::Ifeq(else_label));
                 self.compile_expression(&base_case.expression);
-                self.code.push(Instruction::Goto(out_label));
-                self.code.push(Instruction::Label(else_label));
+                self.code.push(PseudoInstruction::Goto(out_label));
+                self.code.push(PseudoInstruction::Label(else_label));
                 self.compile_expression(&else_case.expression);
-                self.code.push(Instruction::Label(out_label));
+                self.code.push(PseudoInstruction::Label(out_label));
             }
             Expression::While { guard, body } => {
-                let guard_label = self.get_new_label();
-                let out_label = self.get_new_label();
-                self.code.push(Instruction::Label(guard_label));
+                let guard_label = self.label_generator.get_new_label();
+                let out_label = self.label_generator.get_new_label();
+                self.code.push(PseudoInstruction::Label(guard_label));
                 self.compile_expression(&guard.expression);
-                self.code.push(Instruction::Ifeq(out_label));
+                self.code.push(PseudoInstruction::Ifeq(out_label));
                 self.compile_expression(&body.expression);
-                self.code.push(Instruction::Goto(guard_label));
-                self.code.push(Instruction::Label(out_label));
+                self.code.push(PseudoInstruction::Goto(guard_label));
+                self.code.push(PseudoInstruction::Label(out_label));
             }
             Expression::FunctionCall(name, arguments) => {
                 let name = match &name.expression {
@@ -310,7 +289,7 @@ impl CodeCompiler {
                 if name != "println" {
                     panic!();
                 }
-                self.code.push(Instruction::Getstatic {
+                self.code.push(PseudoInstruction::Getstatic {
                     class: "java/lang/System".to_string(),
                     field: "out".to_string(),
                     field_type: "Ljava/io/PrintStream;".to_string(),
@@ -318,13 +297,13 @@ impl CodeCompiler {
                 for argument in arguments {
                     self.compile_expression(&argument.expression);
                 }
-                self.code.push(Instruction::Invokevirtual {
+                self.code.push(PseudoInstruction::Invokevirtual {
                     class: "java/io/PrintStream".to_string(),
                     method: "println".to_string(),
-                    descriptor: "(I)V".to_string(),
+                    descriptor: "(Ljava/lang/String;)V".to_string(),
                 });
             }
-            _ => {}
+            _ => unimplemented!()
         }
     }
 }
@@ -350,9 +329,9 @@ pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
         code_compiler.compile_expression(&e.expression);
     }
 
-    let (mut code, mut variables) = (code_compiler.code, code_compiler.variables);
-
-    code.push(Instruction::Return);
+    let (mut code, mut variables, mut label_generator) =
+        (code_compiler.code, code_compiler.variables, code_compiler.label_generator);
+    code.push(PseudoInstruction::Return);
 
     let class_files = compile(vec![
         Class {
@@ -361,6 +340,7 @@ pub fn to_bytecode(expressions: Vec<ExpressionWithMetadata>) -> io::Result<()> {
                 Method {
                     name: "main".to_string(),
                     signature: "([Ljava/lang/String;)V".to_string(),
+                    label_generator,
                     code,
                     ..Default::default()
                 }
@@ -383,7 +363,7 @@ pub fn compile(classes: Vec<Class>) -> Vec<ClassFile> {
         class_file.super_class = class_file.constant_pool.add_class("java/lang/Object".to_string());
         class_file.access_flags = class.access_flags;
 
-        for method in class.methods {
+        for mut method in class.methods {
             class_file.methods.push(InternalMethod {
                 access_flags: method.access_flags,
                 name_index: class_file.constant_pool.add_utf8(method.name),
@@ -393,7 +373,10 @@ pub fn compile(classes: Vec<Class>) -> Vec<ClassFile> {
                         name_index: class_file.constant_pool.add_utf8("Code".to_string()),
                         max_stack: 10,
                         max_locals: 10,
-                        code: compile_instructions(&method.code, &mut class_file.constant_pool),
+                        code: {
+                            let instructions = compile_to_jvm_instructions(method.code, &mut method.label_generator, &mut class_file.constant_pool);
+                            compile_instructions(&instructions)
+                        },
                         attributes: vec![],
                     }.into()
                 ],

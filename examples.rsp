@@ -1,13 +1,18 @@
 fn main() {
+    let b = "first"
     let a = 4
     let t = if (== a 4) {
-        (println 99)
+        (println "yes")
+        (println b)
+        // (println 99)
         1
     } else {
-        (println 12)
+        (println "no")
+        // (println 12)
         0
     }
-    (println t)
+    // (println t)
+    // (println t)
     // if (== a 4) {
     //     (println 99)
     //     (println 99)
