@@ -1,16 +1,19 @@
 fn main() {
-    let b = "first"
-    let a = 4
-    let t = if (== a 4) {
-        (println "yes")
-        (println b)
-        // (println 99)
-        1
-    } else {
-        (println "no")
-        // (println 12)
-        0
-    }
+    (.println java.lang.System/out "hai ca merge si asa")
+
+    // let b = "first"
+    // let a = 4
+    // let t = if (== a 4) {
+    //     (println "yes")
+    //     (println b)
+    //     // (println 99)
+    //     1
+    // } else {
+    //     (println "no")
+    //     // (println 12)
+    //     0
+    // }
+
     // (println t)
     // (println t)
     // if (== a 4) {

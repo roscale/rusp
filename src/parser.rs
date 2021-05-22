@@ -1,5 +1,5 @@
 /// Same architecture as the lexer.
-/// It outputs a vector of Expressions to be evaluated by the interpreter.
+/// It outputs a vector of Expressions used by the JVM compiler
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::ops::Range;
@@ -7,7 +7,6 @@ use std::rc::Rc;
 
 use ParserError::*;
 
-use crate::interpreter::InterpreterErrorWithSpan;
 use crate::lexer::{Keyword, Literal, Operator, Token};
 use crate::parser::Expression::Scope;
 
@@ -56,6 +55,15 @@ pub enum Expression {
         body: Box<ExpressionWithMetadata>,
     },
     FunctionCall(Box<ExpressionWithMetadata>, Vec<ExpressionWithMetadata>),
+    MethodCall {
+        name: Label,
+        this: Box<ExpressionWithMetadata>,
+        arguments: Vec<ExpressionWithMetadata>,
+    },
+    StaticField {
+        class: String,
+        field: String,
+    },
     If {
         guard: Box<ExpressionWithMetadata>,
         base_case: Box<ExpressionWithMetadata>,
@@ -78,28 +86,12 @@ pub enum Value {
     Float(f32),
     String(String),
     Boolean(bool),
-    Function(Function),
 }
 
 #[derive(Debug)]
 pub enum ParserError {
     UnexpectedToken(Range<usize>),
     UnexpectedEOF,
-}
-
-#[derive(Debug, Clone)]
-pub enum Function {
-    NativeFunction {
-        closing_context: Rc<RefCell<Context>>,
-        name: String,
-        fn_pointer: fn(Rc<RefCell<Context>>, Vec<Value>) -> Result<Value, InterpreterErrorWithSpan>,
-    },
-    RuspFunction {
-        closing_context: Rc<RefCell<Context>>,
-        name: String,
-        parameters: Vec<String>,
-        body: Box<ExpressionWithMetadata>,
-    },
 }
 
 pub struct Parser<'a> {
@@ -145,6 +137,7 @@ impl<'a> Parser<'a> {
 
         let expression = match self.tokens {
             [Token::Id(_), Token::Equal, ..] => self.parse_assignment()?,
+            [Token::Id(_), Token::Dot | Token::Operator(Operator::Slash), ..] => self.parse_static_field()?,
             [Token::Id(id), ..] => {
                 self.advance_by(1);
                 Expression::Id(id.to_owned())
@@ -166,6 +159,7 @@ impl<'a> Parser<'a> {
                 Expression::Value(Value::Boolean(false))
             }
             [Token::LeftParenthesis, Token::Operator(_), ..] => self.parse_operation()?,
+            [Token::LeftParenthesis, Token::Dot, ..] => self.parse_method_call()?,
             [Token::LeftParenthesis, _, ..] => self.parse_function_call()?,
             [Token::LeftBrace, ..] => self.parse_scope()?,
             [Token::Keyword(Keyword::Fn), ..] => self.parse_function()?,
@@ -417,6 +411,91 @@ impl<'a> Parser<'a> {
         Ok(Expression::While {
             guard: Box::new(guard),
             body: Box::new(body),
+        })
+    }
+
+    fn parse_static_field(&mut self) -> Result<Expression, ParserError> {
+        let mut full_class_name = match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::Id(package) => {
+                package.clone()
+            }
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        };
+        self.advance_by(1);
+
+        while matches!(self.tokens.first(), Some(Token::Dot)) {
+            full_class_name += ".";
+            self.advance_by(1); // Skip the dot.
+            full_class_name += match self.tokens.first().ok_or(UnexpectedEOF)? {
+                Token::Id(package) => package,
+                _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+            };
+            self.advance_by(1);
+        }
+
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::Operator(Operator::Slash) => (),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone()))
+        }
+        self.advance_by(1); // Skip slash
+
+        let field = match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::Id(field) => field.clone(),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone()))
+        };
+        self.advance_by(1);
+
+        Ok(Expression::StaticField {
+            class: full_class_name,
+            field,
+        })
+    }
+
+    fn parse_method_call(&mut self) -> Result<Expression, ParserError> {
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::LeftParenthesis => (),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        }
+        self.advance_by(1); // Skip left parenthesis.
+
+        match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::Dot => (),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        };
+        self.advance_by(1); // Skip dot.
+
+        let method_name = match self.tokens.first().ok_or(UnexpectedEOF)? {
+            Token::Id(name) => name.clone(),
+            _ => return Err(UnexpectedToken(self.token_indices[0].clone())),
+        };
+        let start_index = self.utf8_start_index;
+        self.advance_by(1);
+        let end_index = self.utf8_end_index;
+
+        let method_name = Label {
+            label: method_name,
+            span: start_index..end_index,
+        };
+
+        let this = Box::new(self.parse_expression()?);
+
+        let mut arguments = Vec::new();
+        loop {
+            match self.tokens.first().ok_or(UnexpectedEOF)? {
+                Token::RightParenthesis => {
+                    self.advance_by(1);
+                    break;
+                }
+                _ => {
+                    arguments.push(self.parse_expression()?)
+                }
+            }
+        }
+
+        Ok(Expression::MethodCall {
+            name: method_name,
+            this,
+            arguments,
         })
     }
 }

@@ -248,6 +248,7 @@ impl CodeCompiler {
                                 Operator::Plus => self.code.push(PseudoInstruction::Add),
                                 Operator::Equality => self.code.push(PseudoInstruction::Cmpeq),
                                 Operator::Inequality => self.code.push(PseudoInstruction::Cmpne),
+                                Operator::Slash => todo!(),
                             }
                         }
                     }
@@ -303,7 +304,7 @@ impl CodeCompiler {
                     descriptor: "(Ljava/lang/String;)V".to_string(),
                 });
             }
-            _ => unimplemented!()
+            _ => todo!()
         }
     }
 }

@@ -9,17 +9,13 @@ use std::io::Read;
 
 use codespan_reporting::files::SimpleFiles;
 
-use crate::errors::{show_interpreter_error, show_lexer_error, show_parser_error};
-use crate::interpreter::{InterpreterError, InterpreterErrorWithSpan};
+use crate::errors::{show_lexer_error, show_parser_error};
 use crate::lexer::{Lexer, LexerError};
-use crate::native_functions::create_global_context_with_native_functions;
 use crate::parser::{Parser, ParserError};
 use crate::jvm::compiler::to_bytecode;
 
 mod lexer;
 mod parser;
-mod interpreter;
-mod native_functions;
 mod errors;
 mod jvm;
 
@@ -98,7 +94,6 @@ fn main() -> Result<(), AllErrors> {
 enum AllErrors {
     LexerError(LexerError),
     ParserError(ParserError),
-    InterpreterError(InterpreterError),
 }
 
 impl From<LexerError> for AllErrors {
@@ -107,8 +102,4 @@ impl From<LexerError> for AllErrors {
 
 impl From<ParserError> for AllErrors {
     fn from(e: ParserError) -> Self { Self::ParserError(e) }
-}
-
-impl From<InterpreterError> for AllErrors {
-    fn from(e: InterpreterError) -> Self { Self::InterpreterError(e) }
 }

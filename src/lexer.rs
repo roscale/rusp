@@ -15,6 +15,7 @@ pub enum Token {
     Keyword(Keyword),
     Equal,
     Operator(Operator),
+    Dot,
     LeftParenthesis,
     RightParenthesis,
     LeftSquareBracket,
@@ -28,6 +29,7 @@ pub enum Operator {
     Plus,
     Equality,
     Inequality,
+    Slash,
 }
 
 #[derive(Debug, Clone)]
@@ -91,10 +93,6 @@ impl<'a> Lexer<'a> {
                 ['"', ..] => self.process_string_literals()?,
                 [digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
                 ['+' | '-', digit, ..] if digit.is_ascii_digit() => self.process_numeric_literals()?,
-                // Special rules for the equal sign
-                // "=" alone is reserved but it can be used in identifiers
-                ['=', c, ..] if !is_valid_identifier_character(*c) => self.process_operators_and_punctuation()?,
-                ['=', c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [p, ..] if is_punctuation(*p) => self.process_operators_and_punctuation()?,
                 [c, ..] if is_valid_identifier_character(*c) => self.process_keywords_and_identifiers()?,
                 [e, ..] => return Err(LexerError::UnexpectedCharacter(self.char_index..self.char_index + e.len_utf8())),
@@ -157,8 +155,10 @@ impl<'a> Lexer<'a> {
         let token = match self.chars {
             ['=', '=', ..] => Some((2, Token::Operator(Operator::Equality))),
             ['!', '=', ..] => Some((2, Token::Operator(Operator::Inequality))),
+            ['.', ..] => Some((1, Token::Dot)),
             ['=', ..] => Some((1, Token::Equal)),
             ['+', ..] => Some((1, Token::Operator(Operator::Plus))),
+            ['/', ..] => Some((1, Token::Operator(Operator::Slash))),
             ['(', ..] => Some((1, Token::LeftParenthesis)),
             [')', ..] => Some((1, Token::RightParenthesis)),
             ['[', ..] => Some((1, Token::LeftSquareBracket)),
@@ -264,7 +264,7 @@ impl<'a> Lexer<'a> {
 
 fn is_valid_identifier_character(c: char) -> bool {
     match c {
-        '!' | '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => false,
+        c if is_punctuation(c) => false,
         c if c.is_whitespace() => false,
         _ => true,
     }
@@ -272,7 +272,7 @@ fn is_valid_identifier_character(c: char) -> bool {
 
 fn is_punctuation(c: char) -> bool {
     match c {
-        '!' | '=' | '+' | '(' | ')' | '[' | ']' | '{' | '}' => true,
+        '.' | '!' | '=' | '+' | '/' | '(' | ')' | '[' | ']' | '{' | '}' => true,
         _ => false,
     }
 }

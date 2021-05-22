@@ -58,8 +58,8 @@ pub fn compile_to_jvm_instructions(
                         operand_stack.push(JvmType::Byte);
                         instructions.push(Instruction::Bipush(byte))
                     }
-                    PushLiteral::Char(char) => unimplemented!(),
-                    PushLiteral::Short(_) => unimplemented!(),
+                    PushLiteral::Char(char) => todo!(),
+                    PushLiteral::Short(_) => todo!(),
                     PushLiteral::Int(int) => {
                         operand_stack.push(JvmType::Int);
 
@@ -69,13 +69,13 @@ pub fn compile_to_jvm_instructions(
                                 instructions.push(Instruction::Ldc(byte_index));
                             }
                             Err(_) => { // ldc_w
-                                unimplemented!();
+                                todo!();
                             }
                         }
                     }
-                    PushLiteral::Long(_) => unimplemented!(),
-                    PushLiteral::Float(_) => unimplemented!(),
-                    PushLiteral::Double(_) => unimplemented!(),
+                    PushLiteral::Long(_) => todo!(),
+                    PushLiteral::Float(_) => todo!(),
+                    PushLiteral::Double(_) => todo!(),
                     PushLiteral::String(string) => {
                         operand_stack.push(JvmType::Reference);
                         let index = constant_pool.add_string(string);
@@ -84,7 +84,7 @@ pub fn compile_to_jvm_instructions(
                                 instructions.push(Instruction::Ldc(byte_index));
                             }
                             Err(_) => { // ldc_w
-                                unimplemented!();
+                                todo!();
                             }
                         }
                     }
@@ -92,18 +92,18 @@ pub fn compile_to_jvm_instructions(
             }
             PseudoInstruction::Load(var) => {
                 match variable_stack.get(&var) {
-                    None => unimplemented!(),
+                    None => todo!(),
                     Some((index, jvm_type)) => {
                         operand_stack.push(jvm_type);
                         match jvm_type {
                             JvmType::Boolean => instructions.push(Instruction::Iload(index)),
-                            JvmType::Byte => unimplemented!(),
-                            JvmType::Char => unimplemented!(),
-                            JvmType::Short => unimplemented!(),
+                            JvmType::Byte => todo!(),
+                            JvmType::Char => todo!(),
+                            JvmType::Short => todo!(),
                             JvmType::Int => instructions.push(Instruction::Iload(index)),
-                            JvmType::Long => unimplemented!(),
-                            JvmType::Float => unimplemented!(),
-                            JvmType::Double => unimplemented!(),
+                            JvmType::Long => todo!(),
+                            JvmType::Float => todo!(),
+                            JvmType::Double => todo!(),
                             JvmType::Reference => instructions.push(Instruction::Aload(index)),
                         }
                     }
@@ -111,24 +111,24 @@ pub fn compile_to_jvm_instructions(
             }
             PseudoInstruction::Store(var, create) => {
                 match operand_stack.pop() {
-                    None => unimplemented!(),
+                    None => todo!(),
                     Some(jvm_type) => {
                         let index = match create {
                             true => variable_stack.create(var, jvm_type),
                             false => match variable_stack.get(&var) {
-                                None => unimplemented!(),
+                                None => todo!(),
                                 Some((index, _)) => index,
                             }
                         };
                         match jvm_type {
-                            JvmType::Boolean => unimplemented!(),
-                            JvmType::Byte => unimplemented!(),
-                            JvmType::Char => unimplemented!(),
-                            JvmType::Short => unimplemented!(),
+                            JvmType::Boolean => todo!(),
+                            JvmType::Byte => todo!(),
+                            JvmType::Char => todo!(),
+                            JvmType::Short => todo!(),
                             JvmType::Int => instructions.push(Instruction::Istore(index)),
-                            JvmType::Long => unimplemented!(),
-                            JvmType::Float => unimplemented!(),
-                            JvmType::Double => unimplemented!(),
+                            JvmType::Long => todo!(),
+                            JvmType::Float => todo!(),
+                            JvmType::Double => todo!(),
                             JvmType::Reference => instructions.push(Instruction::Astore(index)),
                         }
                     }
@@ -140,18 +140,18 @@ pub fn compile_to_jvm_instructions(
             PseudoInstruction::Add => {
                 use JvmType::*;
                 match (operand_stack.pop(), operand_stack.pop()) {
-                    (None, _) | (_, None) => unimplemented!(),
+                    (None, _) | (_, None) => todo!(),
                     (Some(Int), Some(Int)) => {
                         operand_stack.push(Int);
                         instructions.push(Instruction::Iadd);
                     }
-                    _ => unimplemented!(),
+                    _ => todo!(),
                 }
             }
             PseudoInstruction::Cmpeq => {
                 use JvmType::*;
                 match (operand_stack.pop(), operand_stack.pop()) {
-                    (None, _) | (_, None) => unimplemented!(),
+                    (None, _) | (_, None) => todo!(),
                     (Some(Int), Some(Int)) => {
                         operand_stack.push(Int);
                         let false_label = label_generator.get_new_label();
@@ -163,13 +163,13 @@ pub fn compile_to_jvm_instructions(
                         instructions.push(Instruction::Bipush(0));
                         instructions.push(Instruction::Label(out_label));
                     }
-                    _ => unimplemented!(),
+                    _ => todo!(),
                 }
             }
             PseudoInstruction::Cmpne => {
                 use JvmType::*;
                 match (operand_stack.pop(), operand_stack.pop()) {
-                    (None, _) | (_, None) => unimplemented!(),
+                    (None, _) | (_, None) => todo!(),
                     (Some(Int), Some(Int)) => {
                         operand_stack.push(Int);
                         let false_label = label_generator.get_new_label();
@@ -181,7 +181,7 @@ pub fn compile_to_jvm_instructions(
                         instructions.push(Instruction::Bipush(0));
                         instructions.push(Instruction::Label(out_label));
                     }
-                    _ => unimplemented!(),
+                    _ => todo!(),
                 }
             }
 
